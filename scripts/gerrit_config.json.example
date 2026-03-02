@@ -1,0 +1,9 @@
+{
+  "internal_url": "http://gerrit.internal",
+  "external_url": "http://gerrit.internal",
+  "auth": {
+    "type": "http_basic",
+    "username": "your-gerrit-username",
+    "password": "your-http-password-or-token"
+  }
+}
