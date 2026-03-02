@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connpass — BT/WiFi Engineering AI</title>
+
+<!-- 구글 폰트 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- 코드 하이라이트 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/github-dark.min.css">
+
+<!-- 메인 스타일시트 -->
+<link rel="stylesheet" href="css/main.css">
+<script>
+  // 테마 즉시 복원 (깜빡임 방지)
+  (function(){var t=localStorage.getItem('connpass-theme');if(t)document.documentElement.dataset.theme=t;})();
+</script>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="logo-dot"></div>
+    CONNPASS
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-persona">
+    <button class="persona-btn active">BT</button>
+    <button class="persona-btn">WiFi</button>
+    <button class="persona-btn">ALL</button>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="model-selector">
+    <span>⚡</span>
+    <select id="model-select">
+      <optgroup label="사내 vLLM">
+        <option value="GLM4.7">GLM4.7</option>
+        <option value="Kimi-K2.5">Kimi-K2.5</option>
+        <option value="GPT-OSS-120B">GPT-OSS-120B</option>
+      </optgroup>
+      <optgroup label="OpenAI (테스트)">
+        <option value="gpt-4o">gpt-4o</option>
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="translate-mode-badge" id="topbar-translate-badge">번역 모드</div>
+  <div class="topbar-right">
+    <span id="ws-status-dot" class="ws-status" title="WebSocket 연결 상태"></span>
+    <div class="topbar-sep"></div>
+    <!-- 언어 토글 -->
+    <div class="lang-toggle">
+      <button class="lang-btn active">KO</button>
+      <button class="lang-btn">EN</button>
+    </div>
+    <div class="topbar-sep"></div>
+    <button class="topbar-text-btn" title="사용 가이드">📖 가이드</button>
+    <button class="topbar-text-btn" title="릴리즈 노트">🗒 릴리즈 노트</button>
+    <button class="topbar-text-btn" title="버그 리포트">🐛 Support</button>
+    <div class="topbar-sep"></div>
+    <!-- 설정 버튼은 sidebar footer 에서 처리 -->
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <button class="new-chat-btn">
+        <span>＋</span> 새 채팅
+      </button>
+    </div>
+
+    <!-- 세션 목록 (JS로 동적 렌더링) -->
+    <div class="sidebar-list" id="session-list">
+      <!-- 초기 placeholder — JS가 채움 -->
+      <div style="padding:12px 10px;font-size:11px;color:var(--text-2);text-align:center">서버에 연결 중...</div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-nav-btn" id="settings-toggle-btn">
+        <span class="nav-icon">⚙</span>
+        <span>설정</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- CHAT AREA -->
+  <div class="chat-area" id="chat-area">
+
+    <!-- 번역 모드 바 -->
+    <div class="translate-bar" id="translate-bar">
+      <div class="translate-bar-label">번역 모드 — tool_choice: none</div>
+      <div class="translate-bar-sep"></div>
+      <span style="font-family:var(--font-mono);font-size:10px;color:rgba(176,108,249,0.6)">번역 대상:</span>
+      <div class="target-lang-group" id="target-lang-group">
+        <button class="target-lang-btn">EN</button>
+        <button class="target-lang-btn active">KO</button>
+        <button class="target-lang-btn">JA</button>
+        <button class="target-lang-btn">ZH</button>
+      </div>
+    </div>
+
+    <!-- RAG index bar -->
+    <div class="index-bar" id="index-bar">
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-2);white-space:nowrap">인덱스:</span>
+      <!-- 초기 칩들 (loadIndexes()로 교체될 수 있음) -->
+      <div class="index-chip active">BT-Confluence</div>
+      <div class="index-chip active">BT-Jira</div>
+      <div class="index-chip active">BT-Spec-5.3</div>
+      <div class="index-chip">BT-Spec-5.4</div>
+      <div class="index-chip">BT-Requirement</div>
+      <div class="index-chip">WiFi-Spec</div>
+      <div class="index-chip">Gerrit</div>
+    </div>
+
+    <!-- Messages 영역 -->
+    <div class="messages" id="messages">
+
+      <!-- EMPTY STATE -->
+      <div class="empty-state" id="empty-state">
+        <div>
+          <div class="empty-logo">CONN<span>PASS</span></div>
+        </div>
+        <div class="empty-subtitle">BT/WiFi 엔지니어링 AI 어시스턴트<br>문서 검색, Jira 분석, Gerrit 리뷰를 자연어로</div>
+        <div class="quick-prompts">
+          <div class="quick-prompt">
+            <div class="qp-label">RAG 검색</div>
+            <div class="qp-text">BT 연결 끊김 관련 유사 Jira 이슈 찾아줘</div>
+          </div>
+          <div class="quick-prompt">
+            <div class="qp-label">스펙 분석</div>
+            <div class="qp-text">Bluetooth 5.3 vs 5.4 주요 변경사항 비교해줘</div>
+          </div>
+          <div class="quick-prompt">
+            <div class="qp-label">Jira 분석</div>
+            <div class="qp-text">이번 주 BT 프로젝트 미해결 이슈 요약해줘</div>
+          </div>
+          <div class="quick-prompt">
+            <div class="qp-label">로그 분석</div>
+            <div class="qp-text">HCI_ERR_CONNECTION_TIMEOUT 에러 원인 알려줘</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /messages -->
+
+    <!-- INPUT -->
+    <div class="input-area">
+      <div class="input-tools">
+        <div class="input-tool-chip active">
+          <div class="chip-dot"></div> RAG 검색
+        </div>
+        <div class="input-tool-chip active">
+          <div class="chip-dot"></div> Jira
+        </div>
+        <div class="input-tool-chip">
+          <div class="chip-dot"></div> Gerrit
+        </div>
+        <div class="input-tool-chip">
+          <div class="chip-dot"></div> MCP
+        </div>
+        <div class="input-tool-chip" style="border-style:dashed">
+          + Skill 추가
+        </div>
+        <button class="translate-toggle-btn" id="translate-btn">
+          <span class="t-icon">⟵⟶</span> 번역
+        </button>
+      </div>
+      <div class="input-box">
+        <button class="input-file-btn" title="파일 업로드">📎</button>
+        <textarea
+          id="main-input"
+          placeholder="질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)"
+          rows="1"
+        ></textarea>
+        <button class="send-btn" id="send-btn" title="전송">▶</button>
+      </div>
+      <div class="input-footer">
+        <span class="input-hint"><kbd>Enter</kbd> 전송 &nbsp; <kbd>Shift+Enter</kbd> 줄바꿈</span>
+        <div class="token-counter">
+          <div class="token-bar"><div class="token-fill" id="token-fill"></div></div>
+          <span id="token-text">0K / 128K</span>
+        </div>
+      </div>
+    </div>
+  </div><!-- /chat-area -->
+
+
+  <!-- SETTINGS VIEW (채팅 영역 대체) -->
+  <div class="settings-view" id="settings-view">
+
+    <div class="settings-topbar">
+      <div class="settings-title">CONN<span>PASS</span> &nbsp;/&nbsp; 설정</div>
+      <span class="save-badge" id="save-badge">저장됨</span>
+      <button class="btn-save" id="settings-save-btn">저장</button>
+    </div>
+
+    <div class="settings-layout">
+
+      <!-- 설정 좌측 nav -->
+      <nav class="settings-nav">
+        <div class="nav-group-label">모델 &amp; 연동</div>
+        <div class="nav-item active" data-section="llm"><span class="nav-icon">⚡</span><span class="nav-label">LLM 모델</span></div>
+        <div class="nav-item" data-section="mcp"><span class="nav-icon">🔌</span><span class="nav-label">MCP 서버</span><span class="nav-badge">3</span></div>
+        <div class="nav-item" data-section="jira"><span class="nav-icon">🎫</span><span class="nav-label">JIRA 서버</span></div>
+        <div class="nav-item" data-section="gerrit"><span class="nav-icon">🔍</span><span class="nav-label">Gerrit 서버</span></div>
+        <div class="nav-item" data-section="skill"><span class="nav-icon">⚙️</span><span class="nav-label">Skill</span><span class="nav-badge">4</span></div>
+        <div class="nav-group-label">개인화</div>
+        <div class="nav-item" data-section="agentmd"><span class="nav-icon">📝</span><span class="nav-label">Agent.md</span></div>
+        <div class="nav-group-label">번역</div>
+        <div class="nav-item" data-section="translate"><span class="nav-icon">⟵⟶</span><span class="nav-label">번역 설정</span></div>
+        <div class="nav-group-label">화면</div>
+        <div class="nav-item" data-section="ui"><span class="nav-icon">🎨</span><span class="nav-label">UI 설정</span></div>
+      </nav>
+
+      <!-- 설정 콘텐츠 -->
+      <div class="settings-content">
+
+        <!-- LLM -->
+        <div class="sec active" id="sec-llm">
+          <div class="sec-header">
+            <div class="sec-title">⚡ <span>LLM</span> 모델 설정</div>
+            <div class="sec-desc">모델별로 서버 URL, API Key, 파라미터를 독립적으로 설정합니다.</div>
+          </div>
+
+          <!-- 기본 모델 선택 -->
+          <div class="s-card">
+            <div class="s-card-title">기본 모델</div>
+            <!-- 빌트인 모델 카드 (고정) -->
+            <div class="model-card sel" data-model="GLM4.7">
+              <div class="model-icon">🧠</div>
+              <div class="model-info"><div class="model-name">GLM4.7</div><div class="model-meta"><span>128K ctx</span><span>tool_call ✓</span><span>streaming ✓</span></div></div>
+              <span class="model-badge badge-smart">SMART</span>
+            </div>
+            <div class="model-card" data-model="Kimi-K2.5">
+              <div class="model-icon">⚡</div>
+              <div class="model-info"><div class="model-name">Kimi-K2.5</div><div class="model-meta"><span>32K ctx</span><span>tool_call ✓</span><span>streaming ✓</span></div></div>
+              <span class="model-badge badge-fast">FAST</span>
+            </div>
+            <div class="model-card" data-model="GPT-OSS-120B">
+              <div class="model-icon">🏋️</div>
+              <div class="model-info"><div class="model-name">GPT-OSS-120B</div><div class="model-meta"><span>128K ctx</span><span>tool_call ✓</span></div></div>
+              <span class="model-badge badge-heavy">HEAVY</span>
+            </div>
+            <!-- 사용자 추가 모델 카드 (동적 렌더링) -->
+            <div id="user-model-cards"></div>
+            <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;opacity:.6;font-size:10px;color:var(--text-2);letter-spacing:.05em">— OpenAI (테스트용) —</div>
+            <div class="model-card" data-model="gpt-4o">
+              <div class="model-icon">🤖</div>
+              <div class="model-info"><div class="model-name">gpt-4o</div><div class="model-meta"><span>128K ctx</span><span>tool_call ✓</span><span>streaming ✓</span></div></div>
+            </div>
+            <div class="model-card" data-model="gpt-4o-mini">
+              <div class="model-icon">🤖</div>
+              <div class="model-info"><div class="model-name">gpt-4o-mini</div><div class="model-meta"><span>128K ctx</span><span>tool_call ✓</span><span>경량/빠름</span></div></div>
+            </div>
+          </div>
+
+          <!-- 모델별 서버 + 파라미터 -->
+          <div class="s-card">
+            <div class="s-card-title">모델별 서버 / 파라미터</div>
+            <div id="llm-model-configs"><!-- JS로 렌더링 --></div>
+            <!-- 모델 추가 버튼 -->
+            <button class="s-add-btn" id="add-llm-model-btn">＋ 모델 추가</button>
+            <!-- 모델 추가 폼 -->
+            <div class="s-add-form" id="s-add-llm">
+              <div class="s-add-grid">
+                <div>
+                  <label>vLLM 서버 URL</label>
+                  <input class="s-input" type="text" id="new-llm-base-url" placeholder="http://vllm.internal/v1">
+                </div>
+                <div>
+                  <label>API Key <small>선택사항</small></label>
+                  <input class="s-input" type="password" id="new-llm-api-key" placeholder="sk-...">
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                <button class="s-btn-sm" id="fetch-vllm-models-btn" style="padding:6px 14px">모델 목록 조회</button>
+                <span id="fetch-vllm-status" style="font-family:var(--font-mono);font-size:10px;color:var(--text-2)"></span>
+              </div>
+              <!-- 조회된 모델 선택 -->
+              <div id="vllm-model-picker" style="display:none;margin-top:10px">
+                <label>모델 선택</label>
+                <select class="s-input" id="new-llm-model-id" style="margin-top:4px">
+                  <option value="">— 모델 선택 —</option>
+                </select>
+                <div class="s-add-grid" style="margin-top:8px">
+                  <div>
+                    <label>표시 이름</label>
+                    <input class="s-input" type="text" id="new-llm-display-name" placeholder="My LLaMA 8B">
+                  </div>
+                  <div>
+                    <label>Context Window</label>
+                    <input class="s-input" type="number" id="new-llm-ctx" value="128000" min="1024" step="1024">
+                  </div>
+                  <div>
+                    <label>Max Tokens</label>
+                    <input class="s-input" type="number" id="new-llm-max-tokens" value="4096" min="128" step="256">
+                  </div>
+                  <div>
+                    <label>Temperature</label>
+                    <input class="s-input" type="number" id="new-llm-temp" value="0.7" min="0" max="2" step="0.1">
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <button class="s-btn-sm" id="register-llm-model-btn" style="padding:6px 14px">등록</button>
+                  <button class="s-btn-sm" id="cancel-llm-model-btn">취소</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 공통 에이전트 파라미터 -->
+          <div class="s-card">
+            <div class="s-card-title">공통 파라미터</div>
+            <div class="s-form-row">
+              <div class="s-form-label">Max Tool Steps</div>
+              <div class="s-form-ctrl">
+                <div class="range-wrap">
+                  <input type="range" id="range-maxsteps" min="1" max="30" step="1" value="10" data-param="maxToolSteps">
+                  <span class="range-val" id="sv-step">10</span>
+                </div>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">Thinking Mode</div>
+              <div class="s-form-ctrl">
+                <select class="s-input" id="sel-thinking" data-param="thinkingMode">
+                  <option value="off">off</option>
+                  <option value="minimal">minimal</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px">
+              <button class="s-btn-sm" id="save-common-params-btn" style="padding:6px 14px">저장</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MCP -->
+        <div class="sec" id="sec-mcp">
+          <div class="sec-header">
+            <div class="sec-title">🔌 <span>MCP</span> 서버 관리</div>
+            <div class="sec-desc">SSE 기반 MCP 서버를 등록하고 활성화합니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">등록된 서버</div>
+            <div id="mcp-servers-list">
+              <!-- 동적 렌더링 -->
+              <div class="s-mcp-row">
+                <div class="s-mcp-head"><div class="s-dot s-dot-on"></div><span class="s-mcp-name">Gerrit MCP</span><div class="s-mcp-acts"><button class="s-btn-sm">테스트</button><button class="s-btn-sm s-danger">삭제</button></div><button class="s-tog on"></button></div>
+                <div class="s-mcp-url">http://gerrit-mcp.internal/sse</div>
+                <div class="s-chip-row"><span class="s-chip">search_changes</span><span class="s-chip">get_diff</span><span class="s-chip">submit_review</span><span class="s-chip">list_comments</span></div>
+              </div>
+              <div class="s-mcp-row">
+                <div class="s-mcp-head"><div class="s-dot s-dot-on"></div><span class="s-mcp-name">Jira MCP</span><div class="s-mcp-acts"><button class="s-btn-sm">테스트</button><button class="s-btn-sm s-danger">삭제</button></div><button class="s-tog on"></button></div>
+                <div class="s-mcp-url">http://jira-mcp.internal/sse</div>
+                <div class="s-chip-row"><span class="s-chip">search_issues</span><span class="s-chip">create_issue</span><span class="s-chip">update_issue</span><span class="s-chip">add_comment</span></div>
+              </div>
+              <div class="s-mcp-row" style="border-color:var(--red-dim)">
+                <div class="s-mcp-head"><div class="s-dot s-dot-off"></div><span class="s-mcp-name">Confluence MCP</span><div class="s-mcp-acts"><button class="s-btn-sm">재연결</button><button class="s-btn-sm s-danger">삭제</button></div><button class="s-tog"></button></div>
+                <div class="s-mcp-url" style="color:var(--red)">⚠ 연결 실패 — timeout</div>
+              </div>
+            </div>
+            <button class="s-add-btn" id="add-mcp-btn">＋ MCP 서버 추가</button>
+            <div class="s-add-form" id="s-add-mcp">
+              <div class="s-add-grid">
+                <div><label>서버 이름</label><input class="s-input" type="text" id="new-mcp-name" placeholder="Jira/Confluence MCP"></div>
+                <div><label>서버 URL</label><input class="s-input" type="text" id="new-mcp-url" placeholder="http://localhost:9001"></div>
+                <div>
+                  <label>Transport</label>
+                  <select class="s-input" id="new-mcp-transport">
+                    <option value="streamable-http">streamable-http (권장)</option>
+                    <option value="sse">SSE</option>
+                  </select>
+                </div>
+                <div><label>Authorization Header (선택)</label><input class="s-input" type="text" placeholder="Bearer ..."></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="s-btn-sm" id="register-mcp-btn" style="padding:6px 14px">연결 테스트 후 등록</button>
+                <button class="s-btn-sm" id="cancel-mcp-btn">취소</button>
+              </div>
+            </div>
+          </div>
+          <div class="s-info-box"><strong>로컬 MCP 서버</strong> — streamable-http: <code>/mcp</code> 엔드포인트 / SSE: <code>/sse</code> 엔드포인트. 세션 시작 시 툴 목록 자동 로드.</div>
+        </div>
+
+        <!-- JIRA -->
+        <div class="sec" id="sec-jira">
+          <div class="sec-header">
+            <div class="sec-title">🎫 <span>JIRA</span> 서버 관리</div>
+            <div class="sec-desc">여러 Jira 서버(Atlassian Cloud / 사내 Server)를 등록하고 API 호출 시 선택할 수 있습니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">등록된 서버</div>
+            <div id="jira-servers-list">
+              <!-- 동적 렌더링 -->
+            </div>
+            <button class="s-add-btn" id="add-jira-btn">＋ Jira 서버 추가</button>
+            <div class="s-add-form" id="s-add-jira">
+              <div class="s-add-grid">
+                <div><label>서버 이름</label><input class="s-input" type="text" id="new-jira-name" placeholder="사내 Jira"></div>
+                <div><label>URL</label><input class="s-input" type="text" id="new-jira-url" placeholder="https://company.atlassian.net (또는 .com)"></div>
+                <div><label>이메일 <small>(Cloud Basic Auth용)</small></label><input class="s-input" type="text" id="new-jira-email" placeholder="user@company.com"></div>
+                <div><label>API Token / Bearer Token</label><input class="s-input" type="password" id="new-jira-token" placeholder="API Token / Bearer Token"></div>
+                <div style="grid-column:1/-1"><label>프로젝트 Prefix <small>쉼표 구분 — 서버 자동 라우팅에 사용</small></label><input class="s-input" type="text" id="new-jira-prefixes" placeholder="BT,BT-TEST,WLAN"></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="s-btn-sm" id="register-jira-btn" style="padding:6px 14px">연결 테스트 후 등록</button>
+                <button class="s-btn-sm" id="cancel-jira-btn">취소</button>
+              </div>
+            </div>
+          </div>
+          <div class="s-info-box"><strong>URL 자동 판별</strong> — <code>atlassian.net</code> 또는 <code>atlassian.com</code> 포함 시 Cloud (Basic Auth, email+API Token), 아니면 사내 Server (Bearer Token)</div>
+        </div>
+
+        <!-- GERRIT -->
+        <div class="sec" id="sec-gerrit">
+          <div class="sec-header">
+            <div class="sec-title">🔍 <span>Gerrit</span> 서버 관리</div>
+            <div class="sec-desc">Gerrit 코드리뷰 서버를 등록합니다. Basic Auth 또는 Bearer Token을 지원합니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">등록된 서버</div>
+            <div id="gerrit-servers-list">
+              <!-- 동적 렌더링 -->
+            </div>
+            <button class="s-add-btn" id="add-gerrit-btn">＋ Gerrit 서버 추가</button>
+            <div class="s-add-form" id="s-add-gerrit">
+              <div class="s-add-grid">
+                <div><label>서버 이름</label><input class="s-input" type="text" id="new-gerrit-name" placeholder="사내 Gerrit"></div>
+                <div><label>URL</label><input class="s-input" type="text" id="new-gerrit-url" placeholder="http://gerrit.internal"></div>
+                <div>
+                  <label>인증 방식</label>
+                  <select class="s-input" id="new-gerrit-auth-type">
+                    <option value="basic">HTTP Basic Auth (username + password)</option>
+                    <option value="bearer">Bearer Token</option>
+                  </select>
+                </div>
+                <div><label>사용자명 <small>(Basic Auth용)</small></label><input class="s-input" type="text" id="new-gerrit-username" placeholder="gerrit-username"></div>
+                <div style="grid-column:1/-1"><label>패스워드 / HTTP Token / Bearer Token</label><input class="s-input" type="password" id="new-gerrit-token" placeholder="HTTP 패스워드 또는 Bearer Token"></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="s-btn-sm" id="register-gerrit-btn" style="padding:6px 14px">연결 테스트 후 등록</button>
+                <button class="s-btn-sm" id="cancel-gerrit-btn">취소</button>
+              </div>
+            </div>
+          </div>
+          <div class="s-info-box"><strong>인증 방식</strong> — <code>Basic Auth</code>: Gerrit HTTP 자격증명 (Settings → HTTP Credentials) / <code>Bearer</code>: HTTP Bearer Token</div>
+        </div>
+
+        <!-- SKILL -->
+        <div class="sec" id="sec-skill">
+          <div class="sec-header">
+            <div class="sec-title">⚙️ <span>Skill</span> 관리</div>
+            <div class="sec-desc">SKILL.md 기반 워크플로우를 관리합니다. Cron으로 자동 실행하거나 채팅 중 호출할 수 있습니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">등록된 Skill</div>
+            <div class="s-skill-row">
+              <div class="s-skill-head"><div class="s-skill-emoji">📊</div><div class="s-skill-info"><div class="s-skill-name">주간 BT 이슈 요약</div><div class="s-skill-desc">매주 월요일 오전 9시 BT 프로젝트 미해결 이슈를 요약하고 담당자별로 정리합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm skill-md-toggle-btn">SKILL.md</button><button class="s-btn-sm">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
+              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span><span class="s-stag s-stag-cron">⏰ Cron</span><span class="s-cron-text">0 9 * * 1 — 다음 실행: 월 09:00</span></div>
+              <div class="s-md-preview"><span class="md-key">name:</span> <span class="md-val">weekly-bt-summary</span>
+<span class="md-key">tools:</span> <span class="md-val">["jira","rag_search"]</span>
+<span class="md-key">cron:</span> <span class="md-val">"0 9 * * 1"</span></div>
+            </div>
+            <div class="s-skill-row">
+              <div class="s-skill-head"><div class="s-skill-emoji">🔍</div><div class="s-skill-info"><div class="s-skill-name">RCA 유사 이슈 검색</div><div class="s-skill-desc">로그 파일 첨부 시 HCI 에러 패턴을 추출하고 과거 유사 이슈를 연결합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm skill-md-toggle-btn">SKILL.md</button><button class="s-btn-sm">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
+              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span><span class="s-stag s-stag-wifi">WiFi</span></div>
+              <div class="s-md-preview">SKILL.md 내용...</div>
+            </div>
+            <div class="s-skill-row">
+              <div class="s-skill-head"><div class="s-skill-emoji">📝</div><div class="s-skill-info"><div class="s-skill-name">Gerrit 코드 리뷰 도우미</div><div class="s-skill-desc">CR 번호 입력 시 diff를 분석하고 BT Spec 기준 리뷰 코멘트 초안을 작성합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm skill-md-toggle-btn">SKILL.md</button><button class="s-btn-sm">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
+              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span></div>
+              <div class="s-md-preview">SKILL.md 내용...</div>
+            </div>
+            <div class="s-skill-row">
+              <div class="s-skill-head"><div class="s-skill-emoji">📡</div><div class="s-skill-info"><div class="s-skill-name">WiFi 인증 실패 분석</div><div class="s-skill-desc">802.11 연결 로그 분석 및 인증 단계별 실패 원인을 진단합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm skill-md-toggle-btn">SKILL.md</button><button class="s-btn-sm">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
+              <div class="s-skill-footer"><span class="s-stag s-stag-wifi">WiFi</span></div>
+              <div class="s-md-preview">SKILL.md 내용...</div>
+            </div>
+            <button class="s-add-btn">✨ 자연어로 새 Skill 생성</button>
+          </div>
+        </div>
+
+
+        <!-- TRANSLATE -->
+        <div class="sec" id="sec-translate">
+          <div class="sec-header">
+            <div class="sec-title">⟵⟶ <span>번역</span> 설정</div>
+            <div class="sec-desc">번역 모드 동작 방식을 설정합니다. tool_choice: none으로 LLM 직통 응답하여 지연 없이 빠르게 번역합니다.</div>
+          </div>
+
+          <div class="s-card">
+            <div class="s-card-title">기본 동작</div>
+            <div class="s-form-row">
+              <div class="s-form-label">기본 타겟 언어<small>번역 모드 진입 시</small></div>
+              <div class="s-form-ctrl">
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <button class="target-lang-btn active default-lang-btn" data-lang="KO" style="font-size:11px;padding:5px 12px">KO 한국어</button>
+                  <button class="target-lang-btn default-lang-btn" data-lang="EN" style="font-size:11px;padding:5px 12px">EN English</button>
+                  <button class="target-lang-btn default-lang-btn" data-lang="JA" style="font-size:11px;padding:5px 12px">JA 日本語</button>
+                  <button class="target-lang-btn default-lang-btn" data-lang="ZH" style="font-size:11px;padding:5px 12px">ZH 中文</button>
+                </div>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">번역 모델<small>FAST 권장</small></div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option>자동 (FAST 모델로 전환)</option>
+                  <option>현재 선택 모델 유지</option>
+                  <option>Kimi-K2.5 고정</option>
+                  <option>GLM4.7 고정</option>
+                </select>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">tool_choice<small>번역 모드 시 강제</small></div>
+              <div class="s-form-ctrl">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="font-family:var(--font-mono);font-size:11px;padding:5px 10px;background:var(--bg-2);border:1px solid var(--border-light);border-radius:5px;color:var(--red)">none (고정, 변경불가)</div>
+                  <span style="font-size:11px;color:var(--text-2)">RAG·Jira·MCP 완전 비활성</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="s-card">
+            <div class="s-card-title">번역 프롬프트</div>
+            <div style="margin-bottom:10px">
+              <div class="s-agentmd-toolbar">
+                <button class="s-tool-btn" data-insert-tvar="{{target_lang}}">{{target_lang}}</button>
+                <button class="s-tool-btn" data-insert-tvar="{{source_lang}}">{{source_lang}}</button>
+                <button class="s-tool-btn" data-insert-tvar="{{formality}}">{{formality}}</button>
+              </div>
+              <textarea class="s-textarea" id="translate-prompt-input" style="min-height:140px">You are a professional translator.
+- Detect the source language automatically
+- Translate to: {{target_lang}}
+- Output ONLY the translated text, no explanations
+- Preserve formatting (markdown, code blocks, line breaks)
+- For technical terms (BT spec, HCI error codes), keep original if no standard translation exists</textarea>
+            </div>
+            <div class="s-info-box">
+              <strong>{{target_lang}}</strong> — 번역 바에서 선택한 언어로 자동 치환됩니다.<br>
+              <strong>{{formality}}</strong> — 아래 경어체 설정에 따라 <code>formal</code> 또는 <code>casual</code>로 치환됩니다.
+            </div>
+          </div>
+
+          <div class="s-card">
+            <div class="s-card-title">언어별 세부 설정</div>
+            <div class="s-form-row">
+              <div class="s-form-label">한국어 경어체</div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option selected>합쇼체 (합니다 / 입니다)</option>
+                  <option>해요체 (해요 / 이에요)</option>
+                  <option>해체 (해 / 야)</option>
+                </select>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">영어 문체</div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option selected>Technical (기술 문서체)</option>
+                  <option>Formal (격식체)</option>
+                  <option>Casual (구어체)</option>
+                </select>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">기술 용어 처리<small>BT/WiFi 전문용어</small></div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option selected>원문 유지 (HCI_ERR → HCI_ERR)</option>
+                  <option>번역어 병기 (HCI_ERR · 연결오류)</option>
+                  <option>번역어로 대체</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="s-card">
+            <div class="s-card-title">성능</div>
+            <div class="s-form-row">
+              <div class="s-form-label">스트리밍<small>번역 결과 즉시 출력</small></div>
+              <div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on"></button><span class="s-tog-label">활성화</span></div></div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">히스토리 저장<small>번역 세션 저장 여부</small></div>
+              <div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on"></button><span class="s-tog-label">저장</span></div></div>
+            </div>
+          </div>
+
+          <div class="s-info-box" style="border-left-color:var(--purple);border-color:rgba(176,108,249,0.3);background:rgba(176,108,249,0.06)">
+            번역 모드에서는 <code>tool_choice: none</code> 강제 적용으로 RAG 검색, Jira, MCP tool 호출이 완전히 차단됩니다. LLM 직통 응답으로 <strong>지연 없이</strong> 빠르게 번역합니다.
+          </div>
+        </div>
+
+        <!-- AGENT.MD -->
+        <div class="sec" id="sec-agentmd">
+          <div class="sec-header">
+            <div class="sec-title">📝 <span>Agent.md</span></div>
+            <div class="sec-desc">매 세션 시작 시 system prompt에 자동으로 포함됩니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">기본 정보</div>
+            <div class="s-form-row"><div class="s-form-label">이름 / 팀</div><div class="s-form-ctrl"><input class="s-input" type="text" value="Yalex / BT 펌웨어팀"></div></div>
+            <div class="s-form-row"><div class="s-form-label">기본 페르소나</div><div class="s-form-ctrl"><select class="s-input"><option selected>BT</option><option>WiFi</option><option>ALL</option></select></div></div>
+            <div class="s-form-row"><div class="s-form-label">응답 언어</div><div class="s-form-ctrl"><select class="s-input"><option selected>한국어</option><option>English</option><option>한국어 + English</option></select></div></div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">개인화 프롬프트</div>
+            <div class="s-agentmd-toolbar">
+              <button class="s-tool-btn" data-insert-var="{{name}}">{{name}}</button>
+              <button class="s-tool-btn" data-insert-var="{{team}}">{{team}}</button>
+              <button class="s-tool-btn" data-insert-var="{{persona}}">{{persona}}</button>
+              <button class="s-tool-btn" data-insert-var="{{date}}">{{date}}</button>
+              <button class="s-tool-btn" data-insert-var="{{jira_project}}">{{jira_project}}</button>
+            </div>
+            <textarea class="s-textarea" id="agentmd-input">## 나에 대해
+- 이름: Yalex
+- 팀: BT 펌웨어 개발팀
+
+## 선호 사항
+- 답변은 한국어로, 코드/용어는 영어 유지
+- 분석 결과는 "원인 → 영향 → 해결 방향" 순으로
+
+## 주요 프로젝트 컨텍스트
+- 담당: BT 5.4 펌웨어 안정화
+- Jira 프로젝트: BT, BT-TEST
+- Gerrit 브랜치: bt-fw/main</textarea>
+            <div class="s-info-box" style="margin-top:8px">
+              <strong>변수</strong> — 세션 시작 시 실제 값으로 치환됩니다.
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                <span class="s-var-chip" data-insert-var="{{name}}">{{name}} — 이름</span>
+                <span class="s-var-chip" data-insert-var="{{team}}">{{team}} — 팀명</span>
+                <span class="s-var-chip" data-insert-var="{{persona}}">{{persona}} — 페르소나</span>
+                <span class="s-var-chip" data-insert-var="{{date}}">{{date}} — 날짜</span>
+              </div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">고급</div>
+            <div class="s-form-row"><div class="s-form-label">다음 스텝 제안<small>응답 후 자동 제안</small></div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on"></button><span class="s-tog-label">활성화</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">압축 알림<small>컴팩션 시 표시</small></div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on"></button><span class="s-tog-label">활성화</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">Tool 상세<small>항상 펼침</small></div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog"></button><span class="s-tog-label">비활성화</span></div></div></div>
+          </div>
+        </div>
+
+        <!-- UI -->
+        <div class="sec" id="sec-ui">
+          <div class="sec-header">
+            <div class="sec-title">🎨 <span>UI</span> 설정</div>
+            <div class="sec-desc">화면 테마, 폰트, 밀도 등을 조정합니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">테마</div>
+            <div class="s-theme-row">
+              <div class="s-theme-card sel" id="s-theme-dark">
+                <div class="s-preview s-preview-dark"><div class="s-pbar"></div><div class="s-pbar"></div><div class="s-pbar"></div></div>
+                <div class="s-theme-label">DARK</div>
+              </div>
+              <div class="s-theme-card" id="s-theme-light">
+                <div class="s-preview s-preview-light"><div class="s-pbar"></div><div class="s-pbar"></div><div class="s-pbar"></div></div>
+                <div class="s-theme-label">LIGHT</div>
+              </div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">강조 색상</div>
+            <div class="s-swatches">
+              <div class="s-swatch sel" style="background:#4f9cf9"></div>
+              <div class="s-swatch" style="background:#3ecf8e"></div>
+              <div class="s-swatch" style="background:#b06cf9"></div>
+              <div class="s-swatch" style="background:#f59e3e"></div>
+              <div class="s-swatch" style="background:#f96060"></div>
+              <div class="s-swatch" style="background:#6ecfcf"></div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">폰트 크기</div>
+            <div class="s-form-row">
+              <div class="s-form-label">채팅 텍스트</div>
+              <div class="s-form-ctrl">
+                <div class="range-wrap">
+                  <input type="range" min="11" max="18" step="1" value="13" oninput="document.getElementById('sv-font').textContent=this.value+'px'">
+                  <span class="range-val" id="sv-font" style="width:36px">13px</span>
+                </div>
+              </div>
+            </div>
+            <div class="s-form-row" style="margin-top:12px">
+              <div class="s-form-label">폰트</div>
+              <div class="s-form-ctrl">
+                <div class="s-font-opts">
+                  <div class="s-font-opt sel" style="font-family:'IBM Plex Sans KR'">가Aa<small>IBM Plex KR</small></div>
+                  <div class="s-font-opt" style="font-family:'Noto Sans KR',sans-serif">가Aa<small>Noto Sans KR</small></div>
+                  <div class="s-font-opt" style="font-family:monospace">가Aa<small>Monospace</small></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">채팅 밀도</div>
+            <div class="s-density-row">
+              <div class="s-density-opt"><div>📏</div><div class="s-density-name">COMPACT</div></div>
+              <div class="s-density-opt sel"><div>📐</div><div class="s-density-name">NORMAL</div></div>
+              <div class="s-density-opt"><div>🗂</div><div class="s-density-name">RELAXED</div></div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">기타</div>
+            <div class="s-form-row"><div class="s-form-label">애니메이션<small>스트리밍 효과</small></div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on"></button><span class="s-tog-label">활성화</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">Tool 카드</div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on"></button><span class="s-tog-label">활성화</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">코드 하이라이트</div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on"></button><span class="s-tog-label">활성화</span></div></div></div>
+          </div>
+        </div>
+
+      </div><!-- /settings-content -->
+    </div><!-- /settings-layout -->
+  </div><!-- /settings-view -->
+
+</div><!-- /main -->
+
+<!-- Toast 컨테이너 -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- 마크다운 렌더링 -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- 코드 하이라이트 -->
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/highlight.min.js"></script>
+
+<!-- 앱 모듈 (순서 중요: chat.js → settings.js → app.js) -->
+<script src="js/chat.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

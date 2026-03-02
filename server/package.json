@@ -1,0 +1,25 @@
+{
+  "name": "connpass-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch index.ts",
+    "start": "tsx index.ts"
+  },
+  "dependencies": {
+    "@mariozechner/pi-ai": "latest",
+    "@mariozechner/pi-agent-core": "latest",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8",
+    "dotenv": "^16",
+    "express": "^4",
+    "http-proxy-middleware": "^3"
+  },
+  "devDependencies": {
+    "tsx": "^4",
+    "typescript": "^5",
+    "@types/ws": "^8",
+    "@types/node": "^20",
+    "@types/express": "^4"
+  }
+}
