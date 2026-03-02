@@ -1,0 +1,2573 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IntelliSearch — BT/WiFi Engineering AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #0a0b0d;
+    --bg-1: #0f1115;
+    --bg-2: #161820;
+    --bg-3: #1e2028;
+    --bg-4: #252830;
+    --bg-hover: #2a2d38;
+    --border: #2a2d38;
+    --border-light: #363945;
+    --text-0: #e8eaf0;
+    --text-1: #a8aab8;
+    --text-2: #686a7a;
+    --accent: #4f9cf9;
+    --accent-dim: #1a3558;
+    --accent-glow: rgba(79,156,249,0.12);
+    --green: #3ecf8e;
+    --green-dim: #0d2e1f;
+    --orange: #f59e3e;
+    --orange-dim: #2e1f0a;
+    --red: #f96060;
+    --red-dim: #2e1010;
+    --purple: #b06cf9;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-sans: 'IBM Plex Sans KR', sans-serif;
+    --sidebar-w: 260px;
+    --panel-w: 340px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-0);
+    color: var(--text-0);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    height: 44px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .topbar-logo {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-0);
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .topbar-logo .logo-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+    50% { opacity: 0.5; box-shadow: 0 0 3px var(--accent); }
+  }
+  .topbar-sep { width: 1px; height: 20px; background: var(--border-light); }
+  .topbar-persona {
+    display: flex;
+    gap: 4px;
+  }
+  .persona-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+  }
+  .persona-btn:hover { color: var(--text-1); border-color: var(--border-light); background: var(--bg-3); }
+  .persona-btn.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .model-selector {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-3);
+    border: 1px solid var(--border-light);
+    color: var(--text-1);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .model-selector select {
+    background: transparent;
+    border: none;
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    outline: none;
+  }
+  .model-selector select option { background: var(--bg-2); }
+  .icon-btn {
+    width: 28px; height: 28px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    font-size: 14px;
+  }
+  .icon-btn:hover { color: var(--text-0); background: var(--bg-3); }
+  .icon-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
+  /* 언어 토글 */
+  .lang-toggle {
+    display: flex;
+    background: var(--bg-3);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .lang-btn {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+  }
+  .lang-btn.active { background: var(--accent-dim); color: var(--accent); }
+  .lang-btn:hover:not(.active) { color: var(--text-1); background: var(--bg-4); }
+
+  /* topbar 텍스트 버튼 */
+  .topbar-text-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .topbar-text-btn:hover { color: var(--text-1); background: var(--bg-3); }
+  .topbar-text-btn.settings { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .topbar-text-btn.settings:hover { background: var(--accent); color: white; }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .sidebar-head {
+    padding: 12px 12px 8px;
+    display: flex;
+    gap: 6px;
+  }
+  .new-chat-btn {
+    flex: 1;
+    background: var(--bg-3);
+    border: 1px solid var(--border-light);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.15s;
+  }
+  .new-chat-btn:hover { background: var(--bg-hover); color: var(--text-0); }
+  .sidebar-section {
+    padding: 4px 8px 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-2);
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .sidebar-list { flex: 1; overflow-y: auto; padding: 4px 8px; }
+  .sidebar-list::-webkit-scrollbar { width: 3px; }
+  .sidebar-list::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-list::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+  .session-item {
+    padding: 8px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.1s;
+    margin-bottom: 1px;
+    position: relative;
+  }
+  .session-item:hover { background: var(--bg-3); }
+  .session-item.active { background: var(--bg-4); }
+  .session-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 6px; bottom: 6px;
+    width: 2px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+  }
+  .session-title {
+    font-size: 12px;
+    color: var(--text-0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .session-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-2);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .session-badge {
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 9px;
+    letter-spacing: 0.05em;
+  }
+  .badge-bt { background: var(--accent-dim); color: var(--accent); }
+  .badge-wifi { background: var(--green-dim); color: var(--green); }
+  .sidebar-footer {
+    padding: 10px 8px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 4px;
+  }
+  .sidebar-nav-btn {
+    flex: 1;
+    padding: 7px;
+    border-radius: 5px;
+    border: 1px solid var(--border-light);
+    background: transparent;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .sidebar-nav-btn:hover { color: var(--text-1); background: var(--bg-3); }
+  .sidebar-nav-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+  .sidebar-nav-btn .nav-icon { font-size: 14px; }
+
+  /* ── CHAT AREA ── */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-0);
+    position: relative;
+  }
+
+  /* subtle grid bg */
+  .chat-area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.25;
+    pointer-events: none;
+  }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 40px;
+    position: relative;
+  }
+  .empty-logo {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-2);
+    letter-spacing: 0.1em;
+  }
+  .empty-logo span { color: var(--accent); }
+  .empty-subtitle {
+    font-size: 13px;
+    color: var(--text-2);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .quick-prompts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    max-width: 560px;
+  }
+  .quick-prompt {
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+  }
+  .quick-prompt:hover { background: var(--bg-3); border-color: var(--accent); }
+  .qp-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-bottom: 5px;
+  }
+  .qp-text { font-size: 12px; color: var(--text-1); line-height: 1.4; }
+
+  /* ── MESSAGES ── */
+  .msg-row {
+    padding: 16px 32px;
+    display: flex;
+    gap: 14px;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+  .msg-row:hover { background: rgba(255,255,255,0.015); }
+  .msg-row.user { flex-direction: row-reverse; }
+  .msg-avatar {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .avatar-ai {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  .avatar-user {
+    background: var(--bg-4);
+    border: 1px solid var(--border-light);
+    color: var(--text-1);
+  }
+  .msg-body { flex: 1; min-width: 0; max-width: 700px; }
+  .msg-row.user .msg-body { align-items: flex-end; display: flex; flex-direction: column; }
+  .msg-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-2);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .msg-content {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--text-0);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg-row.user .msg-content {
+    background: var(--bg-3);
+    border: 1px solid var(--border-light);
+    border-radius: 8px 8px 2px 8px;
+    padding: 10px 14px;
+    display: inline-block;
+    max-width: 480px;
+    text-align: left;
+  }
+
+  /* ── TOOL CARDS ── */
+  .tool-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    margin: 8px 0;
+    overflow: hidden;
+    font-family: var(--font-mono);
+  }
+  .tool-card-head {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+  }
+  .tool-status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-running { background: var(--orange); box-shadow: 0 0 6px var(--orange); animation: pulse 1s infinite; }
+  .dot-done { background: var(--green); }
+  .dot-error { background: var(--red); }
+  .tool-name { color: var(--text-1); font-weight: 500; }
+  .tool-duration { margin-left: auto; color: var(--text-2); font-size: 10px; }
+  .tool-args {
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-2);
+  }
+  .tool-args span { color: var(--accent); }
+  .tool-result {
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--green);
+    background: var(--green-dim);
+  }
+
+  /* 인라인 코드 */
+  code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg-3);
+    border: 1px solid var(--border-light);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--accent);
+  }
+
+  /* 다음 스텝 제안 */
+  .next-steps {
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-left: 2px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 10px;
+  }
+  .next-steps-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-bottom: 7px;
+  }
+  .next-step-item {
+    font-size: 12px;
+    color: var(--text-1);
+    padding: 4px 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: color 0.1s;
+  }
+  .next-step-item:hover { color: var(--text-0); }
+  .next-step-item::before { content: '→'; color: var(--accent); font-family: var(--font-mono); font-size: 11px; }
+
+  /* ── CURSOR BLINK ── */
+  .cursor {
+    display: inline-block;
+    width: 2px; height: 14px;
+    background: var(--accent);
+    vertical-align: middle;
+    margin-left: 2px;
+    animation: blink 0.9s steps(1) infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  /* ── INPUT AREA ── */
+  .input-area {
+    padding: 16px 32px 20px;
+    background: var(--bg-0);
+    position: relative;
+  }
+  .input-area::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 32px; right: 32px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-light), transparent);
+  }
+  .input-tools {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .input-tool-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .input-tool-chip:hover { color: var(--text-1); background: var(--bg-3); }
+  .input-tool-chip.active { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+  .input-tool-chip .chip-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor;
+  }
+  .input-box {
+    display: flex;
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .input-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+  .input-file-btn {
+    width: 40px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--border-light);
+    color: var(--text-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .input-file-btn:hover { color: var(--accent); }
+  textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 12px 14px;
+    color: var(--text-0);
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    resize: none;
+    outline: none;
+    min-height: 48px;
+    max-height: 200px;
+    line-height: 1.6;
+  }
+  textarea::placeholder { color: var(--text-2); }
+  .send-btn {
+    width: 44px;
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--border-light);
+    color: var(--text-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { color: var(--accent); background: var(--accent-glow); }
+  .send-btn.stop { color: var(--red); }
+  .input-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding: 0 2px;
+  }
+  .input-hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-2);
+    letter-spacing: 0.05em;
+  }
+  .input-hint kbd {
+    background: var(--bg-3);
+    border: 1px solid var(--border-light);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-2);
+  }
+  .token-counter {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .token-bar {
+    width: 60px; height: 3px;
+    background: var(--bg-4);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .token-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    width: 22%;
+    transition: width 0.3s;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    width: var(--panel-w);
+    background: var(--bg-1);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: width 0.2s ease;
+  }
+  .right-panel.hidden { width: 0; overflow: hidden; }
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-tab {
+    flex: 1;
+    padding: 11px 0;
+    background: transparent;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-2);
+    cursor: pointer;
+    letter-spacing: 0.07em;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .panel-tab:hover { color: var(--text-1); }
+  .panel-tab.active { color: var(--accent); }
+  .panel-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: var(--accent);
+  }
+  .panel-body { flex: 1; overflow-y: auto; padding: 16px; }
+  .panel-body::-webkit-scrollbar { width: 3px; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border-light); }
+
+  /* ── MCP PANEL ── */
+  .panel-section-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-2);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-add-btn {
+    font-size: 14px;
+    width: 22px; height: 22px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .panel-add-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .mcp-item {
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mcp-item:hover { border-color: var(--border-light); background: var(--bg-3); }
+  .mcp-item-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .mcp-status {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .mcp-name { font-size: 12px; font-weight: 500; color: var(--text-0); }
+  .mcp-toggle {
+    margin-left: auto;
+    width: 28px; height: 16px;
+    background: var(--bg-4);
+    border-radius: 8px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: none;
+    flex-shrink: 0;
+  }
+  .mcp-toggle.on { background: var(--green); }
+  .mcp-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 12px; height: 12px;
+    background: white;
+    border-radius: 50%;
+    transition: left 0.2s;
+  }
+  .mcp-toggle.on::after { left: 14px; }
+  .mcp-url {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mcp-tools {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+  .mcp-tool-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    background: var(--bg-4);
+    border-radius: 3px;
+    color: var(--text-2);
+  }
+
+  /* ── SKILL PANEL ── */
+  .skill-item {
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .skill-item:hover { background: var(--bg-3); }
+  .skill-item-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  .skill-icon {
+    width: 24px; height: 24px;
+    background: var(--bg-4);
+    border: 1px solid var(--border-light);
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .skill-name { font-size: 12px; font-weight: 500; color: var(--text-0); }
+  .skill-desc { font-size: 11px; color: var(--text-2); line-height: 1.4; margin-bottom: 6px; }
+  .skill-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .skill-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+  }
+  .tag-bt { background: var(--accent-dim); color: var(--accent); }
+  .tag-wifi { background: var(--green-dim); color: var(--green); }
+  .tag-cron { background: var(--orange-dim); color: var(--orange); }
+  .skill-cron {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--orange);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* ── UPLOAD PANEL ── */
+  .upload-zone {
+    border: 1px dashed var(--border-light);
+    border-radius: 6px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 12px;
+  }
+  .upload-zone:hover { border-color: var(--accent); background: var(--accent-glow); }
+  .upload-icon { font-size: 24px; margin-bottom: 8px; }
+  .upload-text { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+  .upload-text span { color: var(--accent); }
+  .upload-formats {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-2);
+    margin-top: 6px;
+    letter-spacing: 0.05em;
+  }
+  .uploaded-file {
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .file-icon { font-size: 18px; flex-shrink: 0; }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name { font-size: 12px; color: var(--text-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size { font-family: var(--font-mono); font-size: 10px; color: var(--text-2); }
+  .file-status { font-family: var(--font-mono); font-size: 10px; }
+  .status-indexed { color: var(--green); }
+  .status-chunked { color: var(--orange); }
+
+  /* ── ADD MCP MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 24px;
+    width: 400px;
+    transform: translateY(8px);
+    transition: transform 0.2s;
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+  .modal-title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-0);
+    margin-bottom: 20px;
+    letter-spacing: 0.05em;
+  }
+  .form-group { margin-bottom: 14px; }
+  .form-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text-2);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--bg-3);
+    border: 1px solid var(--border-light);
+    border-radius: 5px;
+    padding: 8px 10px;
+    color: var(--text-0);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input::placeholder { color: var(--text-2); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .btn-primary {
+    padding: 8px 16px;
+    background: var(--accent);
+    border: none;
+    border-radius: 5px;
+    color: white;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    border-radius: 5px;
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-secondary:hover { background: var(--bg-3); }
+
+  /* ── RAG INDEX INFO BAR ── */
+  .index-bar {
+    padding: 6px 32px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+  .index-bar::-webkit-scrollbar { height: 2px; }
+  .index-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    background: var(--bg-3);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-2);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .index-chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .index-chip:hover { background: var(--bg-4); }
+
+  /* compaction notice */
+  .compaction-notice {
+    margin: 8px 32px;
+    padding: 8px 12px;
+    background: var(--orange-dim);
+    border: 1px solid var(--orange);
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--orange);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── SETTINGS VIEW ── */
+  .settings-view {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-0);
+    animation: fadeIn 0.18s ease;
+  }
+  .settings-view.active { display: flex; }
+
+  .settings-topbar {
+    height: 44px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .settings-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-1);
+    letter-spacing: 0.08em;
+    flex: 1;
+  }
+  .settings-title span { color: var(--accent); }
+  .save-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--green);
+    opacity: 0;
+    transition: opacity 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .save-badge::before { content: '●'; font-size: 7px; }
+  .save-badge.show { opacity: 1; }
+  .btn-save {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 6px 14px;
+    background: var(--accent);
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: opacity 0.15s;
+  }
+  .btn-save:hover { opacity: 0.85; }
+
+  .settings-layout { display: flex; flex: 1; overflow: hidden; }
+
+  .settings-nav {
+    width: 200px;
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+  .nav-group-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--text-2);
+    text-transform: uppercase;
+    padding: 8px 10px 4px;
+    margin-top: 6px;
+  }
+  .nav-group-label:first-child { margin-top: 0; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-1);
+    transition: all 0.12s;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg-3); color: var(--text-0); }
+  .nav-item.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .nav-icon { font-size: 14px; flex-shrink: 0; }
+  .nav-label { font-size: 12px; font-weight: 500; flex: 1; }
+  .nav-badge { font-family: var(--font-mono); font-size: 9px; padding: 2px 6px; border-radius: 10px; background: var(--bg-4); color: var(--text-2); }
+  .nav-item.active .nav-badge { background: rgba(79,156,249,0.15); color: var(--accent); }
+
+  .settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 36px;
+  }
+  .settings-content::-webkit-scrollbar { width: 4px; }
+  .settings-content::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+
+  /* sections */
+  .sec { display: none; animation: fadeIn 0.15s ease; }
+  .sec.active { display: block; }
+  .sec-header { margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .sec-title { font-family: var(--font-mono); font-size: 16px; font-weight: 600; color: var(--text-0); letter-spacing: 0.04em; margin-bottom: 5px; }
+  .sec-title span { color: var(--accent); }
+  .sec-desc { font-size: 12px; color: var(--text-2); line-height: 1.6; }
+
+  /* settings cards */
+  .s-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; }
+  .s-card-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    color: var(--text-2);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .s-card-title::before { content: ''; width: 3px; height: 11px; background: var(--accent); border-radius: 2px; display: inline-block; }
+
+  /* form rows */
+  .s-form-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .s-form-row:last-child { margin-bottom: 0; }
+  .s-form-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-1); width: 130px; flex-shrink: 0; }
+  .s-form-label small { display: block; font-size: 9px; color: var(--text-2); margin-top: 2px; font-family: var(--font-sans); }
+  .s-form-ctrl { flex: 1; }
+  .s-input {
+    width: 100%;
+    background: var(--bg-2);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text-0);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .s-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+  select.s-input { cursor: pointer; }
+  select.s-input option { background: var(--bg-2); }
+
+  .range-wrap { display: flex; align-items: center; gap: 10px; }
+  input[type=range] { flex:1; -webkit-appearance:none; height:3px; background:var(--bg-4); border-radius:2px; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 0 3px var(--accent-glow); }
+  .range-val { font-family: var(--font-mono); font-size: 11px; color: var(--accent); width: 36px; text-align: right; flex-shrink: 0; }
+
+  /* toggle */
+  .s-tog { width:36px; height:20px; background:var(--bg-4); border-radius:10px; border:none; cursor:pointer; position:relative; transition:background 0.2s; flex-shrink:0; }
+  .s-tog.on { background: var(--green); }
+  .s-tog::after { content:''; position:absolute; top:3px; left:3px; width:14px; height:14px; background:white; border-radius:50%; transition:left 0.2s; }
+  .s-tog.on::after { left:19px; }
+  .s-tog-wrap { display: flex; align-items: center; gap: 10px; }
+  .s-tog-label { font-size: 12px; color: var(--text-1); }
+
+  /* model cards */
+  .model-card { background: var(--bg-2); border: 1px solid var(--border-light); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.15s; position: relative; }
+  .model-card:hover { background: var(--bg-3); }
+  .model-card.sel { border-color: var(--accent); background: var(--accent-dim); }
+  .model-card.sel::after { content:'✓'; position:absolute; right:14px; font-family:var(--font-mono); font-size:13px; color:var(--accent); }
+  .model-icon { width:34px; height:34px; background:var(--bg-3); border:1px solid var(--border-light); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+  .model-info { flex:1; }
+  .model-name { font-size:13px; font-weight:600; color:var(--text-0); margin-bottom:3px; }
+  .model-meta { font-family:var(--font-mono); font-size:10px; color:var(--text-2); display:flex; gap:10px; }
+  .model-badge { font-family:var(--font-mono); font-size:9px; padding:2px 6px; border-radius:4px; letter-spacing:0.04em; }
+  .badge-fast { background:var(--green-dim); color:var(--green); }
+  .badge-smart { background:var(--purple); background:rgba(176,108,249,0.15); color:var(--purple); }
+  .badge-heavy { background:var(--orange-dim); color:var(--orange); }
+
+  /* mcp rows */
+  .s-mcp-row { background:var(--bg-2); border:1px solid var(--border-light); border-radius:8px; padding:12px 14px; margin-bottom:8px; }
+  .s-mcp-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .s-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .s-dot-on { background:var(--green); box-shadow:0 0 5px var(--green); }
+  .s-dot-off { background:var(--red); }
+  .s-mcp-name { font-size:13px; font-weight:600; color:var(--text-0); flex:1; }
+  .s-mcp-url { font-family:var(--font-mono); font-size:10px; color:var(--text-2); margin-bottom:7px; }
+  .s-chip-row { display:flex; flex-wrap:wrap; gap:4px; }
+  .s-chip { font-family:var(--font-mono); font-size:10px; padding:2px 7px; background:var(--bg-4); border-radius:4px; color:var(--text-2); }
+  .s-mcp-acts { display:flex; gap:5px; }
+  .s-btn-sm { font-family:var(--font-mono); font-size:10px; padding:4px 9px; border-radius:4px; border:1px solid var(--border-light); background:transparent; color:var(--text-2); cursor:pointer; transition:all 0.12s; }
+  .s-btn-sm:hover { background:var(--bg-4); color:var(--text-1); }
+  .s-btn-sm.s-danger:hover { border-color:var(--red); color:var(--red); background:var(--red-dim); }
+
+  .s-add-btn { display:flex; align-items:center; gap:7px; padding:9px 12px; background:transparent; border:1px dashed var(--border-light); border-radius:8px; color:var(--text-2); font-family:var(--font-mono); font-size:11px; cursor:pointer; width:100%; transition:all 0.15s; margin-top:6px; }
+  .s-add-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-glow); }
+  .s-add-form { background:var(--bg-2); border:1px dashed var(--border-light); border-radius:8px; padding:14px; margin-top:8px; display:none; }
+  .s-add-form.open { display:block; }
+  .s-add-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:4px; }
+  .s-add-grid label { font-family:var(--font-mono); font-size:10px; color:var(--text-2); letter-spacing:0.07em; display:block; margin-bottom:5px; text-transform:uppercase; }
+
+  /* skill rows */
+  .s-skill-row { background:var(--bg-2); border:1px solid var(--border-light); border-radius:8px; padding:12px 14px; margin-bottom:8px; }
+  .s-skill-head { display:flex; align-items:flex-start; gap:10px; margin-bottom:8px; }
+  .s-skill-emoji { width:30px; height:30px; background:var(--bg-3); border:1px solid var(--border-light); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .s-skill-info { flex:1; }
+  .s-skill-name { font-size:13px; font-weight:600; color:var(--text-0); margin-bottom:3px; }
+  .s-skill-desc { font-size:11px; color:var(--text-2); line-height:1.5; }
+  .s-skill-footer { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:4px; }
+  .s-stag { font-family:var(--font-mono); font-size:9px; padding:2px 7px; border-radius:4px; }
+  .s-stag-bt { background:var(--accent-dim); color:var(--accent); }
+  .s-stag-wifi { background:var(--green-dim); color:var(--green); }
+  .s-stag-cron { background:var(--orange-dim); color:var(--orange); }
+  .s-cron-text { font-family:var(--font-mono); font-size:10px; color:var(--orange); }
+  .s-md-preview { display:none; background:var(--bg-0); border:1px solid var(--border); border-radius:6px; padding:10px; margin-top:8px; font-family:var(--font-mono); font-size:11px; color:var(--text-2); line-height:1.7; }
+  .s-md-preview.open { display:block; }
+  .md-key { color:var(--accent); }
+  .md-val { color:var(--green); }
+
+  /* agentmd */
+  .s-agentmd-toolbar { display:flex; align-items:center; gap:5px; padding:7px 10px; background:var(--bg-3); border:1px solid var(--border-light); border-bottom:none; border-radius:6px 6px 0 0; flex-wrap:wrap; }
+  .s-tool-btn { font-family:var(--font-mono); font-size:10px; padding:3px 7px; border-radius:4px; border:1px solid var(--border-light); background:transparent; color:var(--text-2); cursor:pointer; transition:all 0.12s; }
+  .s-tool-btn:hover { background:var(--bg-4); color:var(--accent); }
+  .s-textarea { width:100%; background:var(--bg-2); border:1px solid var(--border-light); border-radius:0 0 6px 6px; padding:10px 12px; color:var(--text-0); font-family:var(--font-mono); font-size:12px; line-height:1.7; outline:none; resize:vertical; min-height:180px; transition:border-color 0.15s; }
+  .s-textarea:focus { border-color:var(--accent); }
+  .s-var-chip { font-family:var(--font-mono); font-size:10px; padding:3px 8px; background:var(--bg-3); border:1px solid var(--border-light); border-radius:4px; color:var(--accent); cursor:pointer; transition:all 0.12s; }
+  .s-var-chip:hover { background:var(--accent-dim); }
+
+  /* theme */
+  .s-theme-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .s-theme-card { border:2px solid var(--border-light); border-radius:10px; overflow:hidden; cursor:pointer; transition:all 0.15s; position:relative; }
+  .s-theme-card:hover { transform:translateY(-1px); }
+  .s-theme-card.sel { border-color:var(--accent); }
+  .s-theme-card.sel::after { content:'✓'; position:absolute; top:8px; right:10px; font-family:var(--font-mono); font-size:11px; color:var(--accent); background:var(--accent-dim); width:20px; height:20px; border-radius:50%; line-height:20px; text-align:center; }
+  .s-preview { height:60px; display:flex; flex-direction:column; gap:4px; padding:10px; }
+  .s-preview-dark { background:#0a0b0d; }
+  .s-preview-light { background:#f4f5f7; }
+  .s-pbar { height:5px; border-radius:3px; }
+  .s-preview-dark .s-pbar:nth-child(1) { background:#4f9cf9; width:60%; }
+  .s-preview-dark .s-pbar:nth-child(2) { background:#2a2d38; width:80%; }
+  .s-preview-dark .s-pbar:nth-child(3) { background:#2a2d38; width:45%; }
+  .s-preview-light .s-pbar:nth-child(1) { background:#4f9cf9; width:60%; }
+  .s-preview-light .s-pbar:nth-child(2) { background:#dde0e8; width:80%; }
+  .s-preview-light .s-pbar:nth-child(3) { background:#dde0e8; width:45%; }
+  .s-theme-label { padding:7px 10px; font-family:var(--font-mono); font-size:11px; font-weight:500; border-top:1px solid var(--border); background:var(--bg-1); color:var(--text-1); letter-spacing:0.05em; }
+  .s-swatches { display:flex; gap:8px; flex-wrap:wrap; }
+  .s-swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:all 0.15s; position:relative; }
+  .s-swatch:hover { transform:scale(1.1); }
+  .s-swatch.sel { border-color:var(--text-0); }
+  .s-swatch.sel::after { content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; color:white; font-weight:bold; }
+  .s-font-opts { display:flex; gap:8px; flex-wrap:wrap; }
+  .s-font-opt { padding:7px 12px; border:1px solid var(--border-light); border-radius:6px; background:var(--bg-2); cursor:pointer; font-size:13px; color:var(--text-1); transition:all 0.12s; text-align:center; min-width:80px; }
+  .s-font-opt:hover { background:var(--bg-3); }
+  .s-font-opt.sel { border-color:var(--accent); background:var(--accent-dim); color:var(--accent); }
+  .s-font-opt small { display:block; font-family:var(--font-mono); font-size:9px; color:var(--text-2); margin-top:3px; }
+  .s-density-row { display:flex; gap:8px; }
+  .s-density-opt { flex:1; padding:10px; border:1px solid var(--border-light); border-radius:6px; background:var(--bg-2); cursor:pointer; text-align:center; transition:all 0.12s; }
+  .s-density-opt:hover { background:var(--bg-3); }
+  .s-density-opt.sel { border-color:var(--accent); background:var(--accent-dim); }
+  .s-density-name { font-family:var(--font-mono); font-size:10px; color:var(--text-1); letter-spacing:0.05em; margin-top:4px; }
+  .s-density-opt.sel .s-density-name { color:var(--accent); }
+
+  /* info box */
+  .s-info-box { padding:10px 12px; background:var(--bg-2); border:1px solid var(--border-light); border-left:3px solid var(--accent); border-radius:6px; font-size:12px; color:var(--text-2); line-height:1.6; }
+  .s-info-box strong { color:var(--text-1); }
+  .s-info-box code, code { font-family:var(--font-mono); font-size:11px; background:var(--bg-3); padding:1px 5px; border-radius:3px; color:var(--accent); }
+
+  /* settings-btn active state */
+  .sidebar-nav-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
+
+  /* ── TRANSLATE MODE ── */
+
+  /* 번역 토글 버튼 (input-tools 우측) */
+  .translate-toggle-btn {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+    background: transparent;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .translate-toggle-btn:hover { color: var(--text-1); background: var(--bg-3); }
+  .translate-toggle-btn.active {
+    color: var(--purple);
+    border-color: var(--purple);
+    background: rgba(176,108,249,0.12);
+  }
+  .translate-toggle-btn .t-icon { font-size: 12px; }
+
+  /* 번역 모드 배너 (index-bar 대체) */
+  .translate-bar {
+    display: none;
+    padding: 0 20px;
+    height: 36px;
+    background: rgba(176,108,249,0.08);
+    border-bottom: 1px solid rgba(176,108,249,0.25);
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .translate-bar.active { display: flex; }
+  .translate-bar-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--purple);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .translate-bar-label::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--purple);
+    box-shadow: 0 0 6px var(--purple);
+    display: inline-block;
+  }
+  .translate-bar-sep { width: 1px; height: 16px; background: rgba(176,108,249,0.25); flex-shrink: 0; }
+
+  /* 타겟 언어 선택 버튼들 */
+  .target-lang-group { display: flex; gap: 4px; }
+  .target-lang-btn {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 4px;
+    border: 1px solid rgba(176,108,249,0.3);
+    background: transparent;
+    color: rgba(176,108,249,0.6);
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: all 0.12s;
+  }
+  .target-lang-btn:hover { color: var(--purple); border-color: rgba(176,108,249,0.6); }
+  .target-lang-btn.active {
+    background: rgba(176,108,249,0.18);
+    border-color: var(--purple);
+    color: var(--purple);
+  }
+
+  /* 번역 모드에서 tool chip 비활성화 */
+  .input-tools.translate-mode .input-tool-chip:not(.translate-toggle-btn) {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  /* 번역 모드에서 index-bar 숨김 */
+  .index-bar.hidden { display: none; }
+
+  /* 번역 모드 배지 (모델 셀렉터 옆) */
+  .translate-mode-badge {
+    display: none;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(176,108,249,0.15);
+    border: 1px solid rgba(176,108,249,0.4);
+    color: var(--purple);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .translate-mode-badge.show { display: inline-flex; align-items: center; gap: 5px; }
+  .translate-mode-badge::before {
+    content: '⟵⟶';
+    font-size: 9px;
+  }
+
+  /* 번역 결과 말풍선 - 특수 스타일 */
+  .msg-translate-result {
+    background: rgba(176,108,249,0.06);
+    border: 1px solid rgba(176,108,249,0.2);
+    border-radius: 8px 8px 8px 2px;
+    padding: 12px 16px;
+  }
+  .msg-translate-meta {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--purple);
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .msg-translate-meta::before {
+    content: '⟵⟶';
+    font-size: 9px;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="logo-dot"></div>
+    INTELLISEARCH
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-persona">
+    <button class="persona-btn active" onclick="setPersona(this,'BT')">BT</button>
+    <button class="persona-btn" onclick="setPersona(this,'WiFi')">WiFi</button>
+    <button class="persona-btn" onclick="setPersona(this,'ALL')">ALL</button>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="model-selector">
+    <span>⚡</span>
+    <select>
+      <option>GLM4.7</option>
+      <option>Kimi-K2.5</option>
+      <option>GPT-OSS-120B</option>
+    </select>
+  </div>
+  <div class="translate-mode-badge" id="topbar-translate-badge">번역 모드</div>
+  <div class="topbar-right">
+    <div class="topbar-sep"></div>
+    <!-- 언어 토글 -->
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('ko', this)">KO</button>
+      <button class="lang-btn" onclick="setLang('en', this)">EN</button>
+    </div>
+    <div class="topbar-sep"></div>
+    <!-- 가이드 / 릴리즈 노트 / Support -->
+    <button class="topbar-text-btn" onclick="window.open('help.html#guide','_blank')" title="사용 가이드">
+      📖 가이드
+    </button>
+    <button class="topbar-text-btn" onclick="window.open('help.html#release','_blank')" title="릴리즈 노트">
+      🗒 릴리즈 노트
+    </button>
+    <a class="topbar-text-btn" href="https://github.com/your-org/intellisearch/issues" target="_blank" title="GitHub Issues">
+      🐛 Support
+    </a>
+    <div class="topbar-sep"></div>
+    <!-- 설정 -->
+    <a class="topbar-text-btn settings" href="settings.html" title="설정">
+      ⚙ 설정
+    </a>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <button class="new-chat-btn" onclick="newChat()">
+        <span>＋</span> 새 채팅
+      </button>
+    </div>
+
+    <div class="sidebar-section">오늘</div>
+    <div class="sidebar-list">
+      <div class="session-item active">
+        <div class="session-title">BT 연결 끊김 이슈 분석</div>
+        <div class="session-meta">
+          <span class="session-badge badge-bt">BT</span>
+          <span>방금 전</span>
+        </div>
+      </div>
+      <div class="session-item" onclick="selectSession(this)">
+        <div class="session-title">WiFi 6 인증 실패 로그 분석</div>
+        <div class="session-meta">
+          <span class="session-badge badge-wifi">WiFi</span>
+          <span>2시간 전</span>
+        </div>
+      </div>
+      <div class="session-item" onclick="selectSession(this)">
+        <div class="session-title">BT-4821 RCA 리포트 작성</div>
+        <div class="session-meta">
+          <span class="session-badge badge-bt">BT</span>
+          <span>5시간 전</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section" style="padding-left:0;margin-top:12px">어제</div>
+
+      <div class="session-item" onclick="selectSession(this)">
+        <div class="session-title">Gerrit CR-9923 리뷰 요청</div>
+        <div class="session-meta">
+          <span class="session-badge badge-bt">BT</span>
+          <span>어제</span>
+        </div>
+      </div>
+      <div class="session-item" onclick="selectSession(this)">
+        <div class="session-title">A2DP 프로파일 spec 비교</div>
+        <div class="session-meta">
+          <span class="session-badge badge-bt">BT</span>
+          <span>어제</span>
+        </div>
+      </div>
+      <div class="session-item" onclick="selectSession(this)">
+        <div class="session-title">802.11ax 스펙 요약</div>
+        <div class="session-meta">
+          <span class="session-badge badge-wifi">WiFi</span>
+          <span>어제</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section" style="padding-left:0;margin-top:12px">이번 주</div>
+
+      <div class="session-item" onclick="selectSession(this)">
+        <div class="session-title">Jira BT 프로젝트 주간 이슈 요약</div>
+        <div class="session-meta">
+          <span class="session-badge badge-bt">BT</span>
+          <span>3일 전</span>
+        </div>
+      </div>
+      <div class="session-item" onclick="selectSession(this)">
+        <div class="session-title">HCI 에러코드 0x22 유사 이슈</div>
+        <div class="session-meta">
+          <span class="session-badge badge-bt">BT</span>
+          <span>4일 전</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-nav-btn" id="settings-toggle-btn" onclick="toggleSettings()">
+        <span class="nav-icon">⚙</span>
+        <span>설정</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- CHAT AREA -->
+  <div class="chat-area">
+    <!-- 번역 모드 바 -->
+    <div class="translate-bar" id="translate-bar">
+      <div class="translate-bar-label">번역 모드 — tool_choice: none</div>
+      <div class="translate-bar-sep"></div>
+      <span style="font-family:var(--font-mono);font-size:10px;color:rgba(176,108,249,0.6)">번역 대상:</span>
+      <div class="target-lang-group" id="target-lang-group">
+        <button class="target-lang-btn" onclick="setTargetLang(this,'EN')">EN</button>
+        <button class="target-lang-btn active" onclick="setTargetLang(this,'KO')">KO</button>
+        <button class="target-lang-btn" onclick="setTargetLang(this,'JA')">JA</button>
+        <button class="target-lang-btn" onclick="setTargetLang(this,'ZH')">ZH</button>
+      </div>
+    </div>
+
+    <!-- RAG index bar -->
+    <div class="index-bar" id="index-bar">
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-2);white-space:nowrap">인덱스:</span>
+      <div class="index-chip active">BT-Confluence</div>
+      <div class="index-chip active">BT-Jira</div>
+      <div class="index-chip active">BT-Spec-5.3</div>
+      <div class="index-chip" onclick="this.classList.toggle('active')">BT-Spec-5.4</div>
+      <div class="index-chip" onclick="this.classList.toggle('active')">BT-Requirement</div>
+      <div class="index-chip" onclick="this.classList.toggle('active')">WiFi-Spec</div>
+      <div class="index-chip" onclick="this.classList.toggle('active')">Gerrit</div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" id="messages">
+
+      <!-- EMPTY STATE (초기) -->
+      <div class="empty-state" id="empty-state">
+        <div>
+          <div class="empty-logo">INTELLI<span>SEARCH</span></div>
+        </div>
+        <div class="empty-subtitle">BT/WiFi 엔지니어링 AI 어시스턴트<br>문서 검색, Jira 분석, Gerrit 리뷰를 자연어로</div>
+        <div class="quick-prompts">
+          <div class="quick-prompt" onclick="sendQuick(this)">
+            <div class="qp-label">RAG 검색</div>
+            <div class="qp-text">BT 연결 끊김 관련 유사 Jira 이슈 찾아줘</div>
+          </div>
+          <div class="quick-prompt" onclick="sendQuick(this)">
+            <div class="qp-label">스펙 분석</div>
+            <div class="qp-text">Bluetooth 5.3 vs 5.4 주요 변경사항 비교해줘</div>
+          </div>
+          <div class="quick-prompt" onclick="sendQuick(this)">
+            <div class="qp-label">Jira 분석</div>
+            <div class="qp-text">이번 주 BT 프로젝트 미해결 이슈 요약해줘</div>
+          </div>
+          <div class="quick-prompt" onclick="sendQuick(this)">
+            <div class="qp-label">로그 분석</div>
+            <div class="qp-text">HCI_ERR_CONNECTION_TIMEOUT 에러 원인 알려줘</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DEMO MESSAGES (숨김 → showChat()으로 표시) -->
+      <div id="chat-demo" style="display:none">
+
+        <!-- user -->
+        <div class="msg-row user">
+          <div class="msg-avatar avatar-user">YL</div>
+          <div class="msg-body">
+            <div class="msg-meta">Yalex · 오후 2:31</div>
+            <div class="msg-content">BT 연결 끊김 관련 최근 6개월 Jira 이슈 분석해줘. HCI_ERR_CONNECTION_TIMEOUT 로그 패턴 위주로.</div>
+          </div>
+        </div>
+
+        <!-- tool: rag_search -->
+        <div class="msg-row">
+          <div class="msg-avatar avatar-ai">AI</div>
+          <div class="msg-body">
+            <div class="msg-meta">IntelliSearch · 오후 2:31</div>
+            <div class="tool-card">
+              <div class="tool-card-head">
+                <div class="tool-status-dot dot-done"></div>
+                <span class="tool-name">jira_search</span>
+                <span class="tool-duration">1.2s</span>
+              </div>
+              <div class="tool-args"><span>jql:</span> project=BT AND created >= -180d AND text ~ "HCI_ERR_CONNECTION_TIMEOUT" ORDER BY created DESC<br><span>maxResults:</span> 20</div>
+              <div class="tool-result">✓ 17개 이슈 반환 (BT-4821, BT-4756, BT-4612 ...)</div>
+            </div>
+            <div class="tool-card">
+              <div class="tool-card-head">
+                <div class="tool-status-dot dot-done"></div>
+                <span class="tool-name">rag_search</span>
+                <span class="tool-duration">0.8s</span>
+              </div>
+              <div class="tool-args"><span>query:</span> HCI_ERR_CONNECTION_TIMEOUT root cause analysis<br><span>index:</span> BT-Spec-5.3, BT-Confluence</div>
+              <div class="tool-result">✓ 5개 청크 반환 (유사도 0.87, 0.84, 0.79 ...)</div>
+            </div>
+            <div class="msg-content">최근 6개월간 <code>HCI_ERR_CONNECTION_TIMEOUT</code> 관련 이슈 **17건** 분석 결과입니다.
+
+**주요 패턴 (3가지)**
+
+1. **Peer 장치 응답 지연** — 12건 (71%)
+   Samsung Galaxy S24 계열에서 집중 발생. supervision timeout 기본값(720ms)이 타이트한 환경에서 트리거.
+
+2. **RF 간섭** — 3건 (18%)
+   2.4GHz WiFi와 채널 충돌. 채널 호핑 로직 개선으로 BT-4612에서 해결.
+
+3. **펌웨어 버그** — 2건 (12%)
+   v2.3.1 specific. BT-4821은 현재 진행 중.</div>
+            <div class="next-steps">
+              <div class="next-steps-label">💡 다음 단계</div>
+              <div class="next-step-item" onclick="sendQuick(this)">BT-4821 상세 RCA 분석해줘</div>
+              <div class="next-step-item" onclick="sendQuick(this)">Samsung Galaxy S24 Peer 관련 이슈 전체 목록 보여줘</div>
+              <div class="next-step-item" onclick="sendQuick(this)">Supervision timeout 관련 BT Spec 5.3 섹션 찾아줘</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- user -->
+        <div class="msg-row user">
+          <div class="msg-avatar avatar-user">YL</div>
+          <div class="msg-body">
+            <div class="msg-meta">Yalex · 오후 2:34</div>
+            <div class="msg-content">BT-4821 RCA 분석해줘</div>
+          </div>
+        </div>
+
+        <!-- streaming response -->
+        <div class="msg-row">
+          <div class="msg-avatar avatar-ai">AI</div>
+          <div class="msg-body">
+            <div class="msg-meta">IntelliSearch · 오후 2:34</div>
+            <div class="tool-card">
+              <div class="tool-card-head">
+                <div class="tool-status-dot dot-running"></div>
+                <span class="tool-name">jira_search</span>
+                <span class="tool-duration">...</span>
+              </div>
+              <div class="tool-args"><span>jql:</span> issue=BT-4821</div>
+            </div>
+            <div class="msg-content" id="streaming-text">**BT-4821 분석 중**
+
+담당자: 김민준 | 우선순위: P1 | 상태: In Progress
+
+증상: v2.3.1 펌웨어에서 특정 조건 하 연결 유지 실패. 재현율 약 30%.<span class="cursor"></span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Compaction notice (숨김) -->
+    <div class="compaction-notice" id="compaction-notice" style="display:none">
+      ⚡ 컨텍스트 80% 도달 — 이전 대화 자동 요약 중...
+    </div>
+
+    <!-- INPUT -->
+    <div class="input-area">
+      <div class="input-tools">
+        <div class="input-tool-chip active" onclick="toggleChip(this)">
+          <div class="chip-dot"></div> RAG 검색
+        </div>
+        <div class="input-tool-chip active" onclick="toggleChip(this)">
+          <div class="chip-dot"></div> Jira
+        </div>
+        <div class="input-tool-chip" onclick="toggleChip(this)">
+          <div class="chip-dot"></div> Gerrit
+        </div>
+        <div class="input-tool-chip" onclick="toggleChip(this)">
+          <div class="chip-dot"></div> MCP
+        </div>
+        <div class="input-tool-chip" onclick="toggleChip(this)" style="border-style:dashed">
+          + Skill 추가
+        </div>
+        <button class="translate-toggle-btn" id="translate-btn" onclick="toggleTranslateMode()">
+          <span class="t-icon">⟵⟶</span> 번역
+        </button>
+      </div>
+      <div class="input-box">
+        <button class="input-file-btn" title="파일 업로드" onclick="showUpload()">📎</button>
+        <textarea
+          id="main-input"
+          placeholder="질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)"
+          rows="1"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this)"
+        ></textarea>
+        <button class="send-btn" id="send-btn" onclick="toggleSend()">▶</button>
+      </div>
+      <div class="input-footer">
+        <span class="input-hint"><kbd>Enter</kbd> 전송 &nbsp; <kbd>Shift+Enter</kbd> 줄바꿈</span>
+        <div class="token-counter">
+          <div class="token-bar"><div class="token-fill" id="token-fill"></div></div>
+          <span id="token-text">28K / 128K</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- SETTINGS VIEW (채팅 영역 대체) -->
+  <div class="settings-view" id="settings-view">
+
+    <div class="settings-topbar">
+      <div class="settings-title">INTELLI<span>SEARCH</span> &nbsp;/&nbsp; 설정</div>
+      <span class="save-badge" id="save-badge">저장됨</span>
+      <button class="btn-save" onclick="saveAll()">저장</button>
+    </div>
+
+    <div class="settings-layout">
+
+      <!-- 설정 좌측 nav -->
+      <nav class="settings-nav">
+        <div class="nav-group-label">모델 &amp; 연동</div>
+        <div class="nav-item active" onclick="showSec('llm',this)"><span class="nav-icon">⚡</span><span class="nav-label">LLM 모델</span></div>
+        <div class="nav-item" onclick="showSec('mcp',this)"><span class="nav-icon">🔌</span><span class="nav-label">MCP 서버</span><span class="nav-badge">3</span></div>
+        <div class="nav-item" onclick="showSec('skill',this)"><span class="nav-icon">⚙️</span><span class="nav-label">Skill</span><span class="nav-badge">4</span></div>
+        <div class="nav-group-label">개인화</div>
+        <div class="nav-item" onclick="showSec('agentmd',this)"><span class="nav-icon">📝</span><span class="nav-label">Agent.md</span></div>
+        <div class="nav-group-label">번역</div>
+        <div class="nav-item" onclick="showSec('translate',this)"><span class="nav-icon">⟵⟶</span><span class="nav-label">번역 설정</span></div>
+        <div class="nav-group-label">화면</div>
+        <div class="nav-item" onclick="showSec('ui',this)"><span class="nav-icon">🎨</span><span class="nav-label">UI 설정</span></div>
+      </nav>
+
+      <!-- 설정 콘텐츠 -->
+      <div class="settings-content">
+
+        <!-- LLM -->
+        <div class="sec active" id="sec-llm">
+          <div class="sec-header">
+            <div class="sec-title">⚡ <span>LLM</span> 모델 설정</div>
+            <div class="sec-desc">사내 vLLM에 서빙 중인 모델을 선택하고 파라미터를 조정합니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">기본 모델</div>
+            <div class="model-card sel" onclick="selectModel(this)">
+              <div class="model-icon">🧠</div>
+              <div class="model-info"><div class="model-name">GLM4.7</div><div class="model-meta"><span>128K ctx</span><span>tool_call ✓</span><span>streaming ✓</span></div></div>
+              <span class="model-badge badge-smart">SMART</span>
+            </div>
+            <div class="model-card" onclick="selectModel(this)">
+              <div class="model-icon">⚡</div>
+              <div class="model-info"><div class="model-name">Kimi-K2.5</div><div class="model-meta"><span>32K ctx</span><span>tool_call ✓</span><span>streaming ✓</span></div></div>
+              <span class="model-badge badge-fast">FAST</span>
+            </div>
+            <div class="model-card" onclick="selectModel(this)">
+              <div class="model-icon">🏋️</div>
+              <div class="model-info"><div class="model-name">GPT-OSS-120B</div><div class="model-meta"><span>128K ctx</span><span>tool_call ✓</span></div></div>
+              <span class="model-badge badge-heavy">HEAVY</span>
+            </div>
+            <div class="s-info-box" style="margin-top:10px">사내 vLLM: <code>http://vllm.internal/v1</code> — OpenAI 호환 API</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">파라미터</div>
+            <div class="s-form-row"><div class="s-form-label">Temperature<small>창의성/일관성</small></div><div class="s-form-ctrl"><div class="range-wrap"><input type="range" min="0" max="2" step="0.1" value="0.7" oninput="document.getElementById('sv-temp').textContent=this.value"><span class="range-val" id="sv-temp">0.7</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">Max Tokens</div><div class="s-form-ctrl"><div class="range-wrap"><input type="range" min="512" max="8192" step="256" value="4096" oninput="document.getElementById('sv-tok').textContent=Number(this.value).toLocaleString()"><span class="range-val" id="sv-tok" style="width:48px">4,096</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">Max Tool Steps</div><div class="s-form-ctrl"><div class="range-wrap"><input type="range" min="1" max="30" step="1" value="10" oninput="document.getElementById('sv-step').textContent=this.value"><span class="range-val" id="sv-step">10</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">Thinking Mode</div><div class="s-form-ctrl"><select class="s-input"><option>off</option><option>minimal</option><option selected>low</option><option>medium</option><option>high</option></select></div></div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">연결 상태</div>
+            <div class="s-form-row"><div class="s-form-label">vLLM Endpoint</div><div class="s-form-ctrl"><input class="s-input" type="text" value="http://vllm.internal/v1"></div></div>
+            <div class="s-form-row"><div class="s-form-label">API Key<small>선택사항</small></div><div class="s-form-ctrl"><input class="s-input" type="password" placeholder="sk-..."></div></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+              <button class="s-btn-sm" onclick="testConn()" style="padding:6px 14px">연결 테스트</button>
+              <span id="conn-result" style="font-family:var(--font-mono);font-size:11px;color:var(--green)"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MCP -->
+        <div class="sec" id="sec-mcp">
+          <div class="sec-header">
+            <div class="sec-title">🔌 <span>MCP</span> 서버 관리</div>
+            <div class="sec-desc">SSE 기반 MCP 서버를 등록하고 활성화합니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">등록된 서버</div>
+            <div class="s-mcp-row">
+              <div class="s-mcp-head"><div class="s-dot s-dot-on"></div><span class="s-mcp-name">Gerrit MCP</span><div class="s-mcp-acts"><button class="s-btn-sm" onclick="alert('테스트')">테스트</button><button class="s-btn-sm s-danger" onclick="alert('삭제')">삭제</button></div><button class="s-tog on" onclick="this.classList.toggle('on')"></button></div>
+              <div class="s-mcp-url">http://gerrit-mcp.internal/sse</div>
+              <div class="s-chip-row"><span class="s-chip">search_changes</span><span class="s-chip">get_diff</span><span class="s-chip">submit_review</span><span class="s-chip">list_comments</span></div>
+            </div>
+            <div class="s-mcp-row">
+              <div class="s-mcp-head"><div class="s-dot s-dot-on"></div><span class="s-mcp-name">Jira MCP</span><div class="s-mcp-acts"><button class="s-btn-sm" onclick="alert('테스트')">테스트</button><button class="s-btn-sm s-danger" onclick="alert('삭제')">삭제</button></div><button class="s-tog on" onclick="this.classList.toggle('on')"></button></div>
+              <div class="s-mcp-url">http://jira-mcp.internal/sse</div>
+              <div class="s-chip-row"><span class="s-chip">search_issues</span><span class="s-chip">create_issue</span><span class="s-chip">update_issue</span><span class="s-chip">add_comment</span></div>
+            </div>
+            <div class="s-mcp-row" style="border-color:var(--red-dim)">
+              <div class="s-mcp-head"><div class="s-dot s-dot-off"></div><span class="s-mcp-name">Confluence MCP</span><div class="s-mcp-acts"><button class="s-btn-sm" onclick="alert('재연결')">재연결</button><button class="s-btn-sm s-danger" onclick="alert('삭제')">삭제</button></div><button class="s-tog" onclick="this.classList.toggle('on')"></button></div>
+              <div class="s-mcp-url" style="color:var(--red)">⚠ 연결 실패 — timeout</div>
+            </div>
+            <button class="s-add-btn" onclick="document.getElementById('s-add-mcp').classList.toggle('open')">＋ MCP 서버 추가</button>
+            <div class="s-add-form" id="s-add-mcp">
+              <div class="s-add-grid">
+                <div><label>서버 이름</label><input class="s-input" type="text" placeholder="Gerrit MCP"></div>
+                <div><label>SSE URL</label><input class="s-input" type="text" placeholder="http://mcp.internal/sse"></div>
+                <div style="grid-column:1/-1"><label>Authorization Header (선택)</label><input class="s-input" type="text" placeholder="Bearer ..."></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="s-btn-sm" style="padding:6px 14px" onclick="alert('등록')">연결 테스트 후 등록</button>
+                <button class="s-btn-sm" onclick="document.getElementById('s-add-mcp').classList.remove('open')">취소</button>
+              </div>
+            </div>
+          </div>
+          <div class="s-info-box"><strong>SSE 전용</strong> — 세션 시작 시 <code>tools/list</code> 자동 호출</div>
+        </div>
+
+        <!-- SKILL -->
+        <div class="sec" id="sec-skill">
+          <div class="sec-header">
+            <div class="sec-title">⚙️ <span>Skill</span> 관리</div>
+            <div class="sec-desc">SKILL.md 기반 워크플로우를 관리합니다. Cron으로 자동 실행하거나 채팅 중 호출할 수 있습니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">등록된 Skill</div>
+            <div class="s-skill-row">
+              <div class="s-skill-head"><div class="s-skill-emoji">📊</div><div class="s-skill-info"><div class="s-skill-name">주간 BT 이슈 요약</div><div class="s-skill-desc">매주 월요일 오전 9시 BT 프로젝트 미해결 이슈를 요약하고 담당자별로 정리합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm" onclick="toggleSkillMd(this)">SKILL.md</button><button class="s-btn-sm" onclick="alert('편집')">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
+              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span><span class="s-stag s-stag-cron">⏰ Cron</span><span class="s-cron-text">0 9 * * 1 — 다음 실행: 월 09:00</span></div>
+              <div class="s-md-preview"><span class="md-key">name:</span> <span class="md-val">weekly-bt-summary</span>
+<span class="md-key">tools:</span> <span class="md-val">["jira","rag_search"]</span>
+<span class="md-key">cron:</span> <span class="md-val">"0 9 * * 1"</span></div>
+            </div>
+            <div class="s-skill-row">
+              <div class="s-skill-head"><div class="s-skill-emoji">🔍</div><div class="s-skill-info"><div class="s-skill-name">RCA 유사 이슈 검색</div><div class="s-skill-desc">로그 파일 첨부 시 HCI 에러 패턴을 추출하고 과거 유사 이슈를 연결합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm" onclick="toggleSkillMd(this)">SKILL.md</button><button class="s-btn-sm" onclick="alert('편집')">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
+              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span><span class="s-stag s-stag-wifi">WiFi</span></div>
+              <div class="s-md-preview">SKILL.md 내용...</div>
+            </div>
+            <div class="s-skill-row">
+              <div class="s-skill-head"><div class="s-skill-emoji">📝</div><div class="s-skill-info"><div class="s-skill-name">Gerrit 코드 리뷰 도우미</div><div class="s-skill-desc">CR 번호 입력 시 diff를 분석하고 BT Spec 기준 리뷰 코멘트 초안을 작성합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm" onclick="toggleSkillMd(this)">SKILL.md</button><button class="s-btn-sm" onclick="alert('편집')">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
+              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span></div>
+              <div class="s-md-preview">SKILL.md 내용...</div>
+            </div>
+            <div class="s-skill-row">
+              <div class="s-skill-head"><div class="s-skill-emoji">📡</div><div class="s-skill-info"><div class="s-skill-name">WiFi 인증 실패 분석</div><div class="s-skill-desc">802.11 연결 로그 분석 및 인증 단계별 실패 원인을 진단합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm" onclick="toggleSkillMd(this)">SKILL.md</button><button class="s-btn-sm" onclick="alert('편집')">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
+              <div class="s-skill-footer"><span class="s-stag s-stag-wifi">WiFi</span></div>
+              <div class="s-md-preview">SKILL.md 내용...</div>
+            </div>
+            <button class="s-add-btn" onclick="alert('자연어로 Skill 생성')">✨ 자연어로 새 Skill 생성</button>
+          </div>
+        </div>
+
+
+        <!-- TRANSLATE -->
+        <div class="sec" id="sec-translate">
+          <div class="sec-header">
+            <div class="sec-title">⟵⟶ <span>번역</span> 설정</div>
+            <div class="sec-desc">번역 모드 동작 방식을 설정합니다. tool_choice: none으로 LLM 직통 응답하여 지연 없이 빠르게 번역합니다.</div>
+          </div>
+
+          <div class="s-card">
+            <div class="s-card-title">기본 동작</div>
+            <div class="s-form-row">
+              <div class="s-form-label">기본 타겟 언어<small>번역 모드 진입 시</small></div>
+              <div class="s-form-ctrl">
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <button class="target-lang-btn active" style="font-size:11px;padding:5px 12px" onclick="selDefaultLang(this)">KO 한국어</button>
+                  <button class="target-lang-btn" style="font-size:11px;padding:5px 12px" onclick="selDefaultLang(this)">EN English</button>
+                  <button class="target-lang-btn" style="font-size:11px;padding:5px 12px" onclick="selDefaultLang(this)">JA 日本語</button>
+                  <button class="target-lang-btn" style="font-size:11px;padding:5px 12px" onclick="selDefaultLang(this)">ZH 中文</button>
+                </div>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">번역 모델<small>FAST 권장</small></div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option>자동 (FAST 모델로 전환)</option>
+                  <option>현재 선택 모델 유지</option>
+                  <option>Kimi-K2.5 고정</option>
+                  <option>GLM4.7 고정</option>
+                </select>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">tool_choice<small>번역 모드 시 강제</small></div>
+              <div class="s-form-ctrl">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="font-family:var(--font-mono);font-size:11px;padding:5px 10px;background:var(--bg-2);border:1px solid var(--border-light);border-radius:5px;color:var(--red)">none (고정, 변경불가)</div>
+                  <span style="font-size:11px;color:var(--text-2)">RAG·Jira·MCP 완전 비활성</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="s-card">
+            <div class="s-card-title">번역 프롬프트</div>
+            <div style="margin-bottom:10px">
+              <div class="s-agentmd-toolbar">
+                <button class="s-tool-btn" onclick="insertTVar('{{target_lang}}')">{{target_lang}}</button>
+                <button class="s-tool-btn" onclick="insertTVar('{{source_lang}}')">{{source_lang}}</button>
+                <button class="s-tool-btn" onclick="insertTVar('{{formality}}')">{{formality}}</button>
+              </div>
+              <textarea class="s-textarea" id="translate-prompt-input" style="min-height:140px">You are a professional translator.
+- Detect the source language automatically
+- Translate to: {{target_lang}}
+- Output ONLY the translated text, no explanations
+- Preserve formatting (markdown, code blocks, line breaks)
+- For technical terms (BT spec, HCI error codes), keep original if no standard translation exists</textarea>
+            </div>
+            <div class="s-info-box">
+              <strong>{{target_lang}}</strong> — 번역 바에서 선택한 언어로 자동 치환됩니다.<br>
+              <strong>{{formality}}</strong> — 아래 경어체 설정에 따라 <code>formal</code> 또는 <code>casual</code>로 치환됩니다.
+            </div>
+          </div>
+
+          <div class="s-card">
+            <div class="s-card-title">언어별 세부 설정</div>
+            <div class="s-form-row">
+              <div class="s-form-label">한국어 경어체</div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option selected>합쇼체 (합니다 / 입니다)</option>
+                  <option>해요체 (해요 / 이에요)</option>
+                  <option>해체 (해 / 야)</option>
+                </select>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">영어 문체</div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option selected>Technical (기술 문서체)</option>
+                  <option>Formal (격식체)</option>
+                  <option>Casual (구어체)</option>
+                </select>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">기술 용어 처리<small>BT/WiFi 전문용어</small></div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option selected>원문 유지 (HCI_ERR → HCI_ERR)</option>
+                  <option>번역어 병기 (HCI_ERR · 연결오류)</option>
+                  <option>번역어로 대체</option>
+                </select>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">출력 형식</div>
+              <div class="s-form-ctrl">
+                <select class="s-input">
+                  <option selected>번역문만</option>
+                  <option>원문 + 번역문</option>
+                  <option>번역문 + 단어 해설</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="s-card">
+            <div class="s-card-title">성능</div>
+            <div class="s-form-row">
+              <div class="s-form-label">스트리밍<small>번역 결과 즉시 출력</small></div>
+              <div class="s-form-ctrl">
+                <div class="s-tog-wrap"><button class="s-tog on" onclick="this.classList.toggle('on')"></button><span class="s-tog-label">활성화</span></div>
+              </div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">히스토리 저장<small>번역 세션 저장 여부</small></div>
+              <div class="s-form-ctrl">
+                <div class="s-tog-wrap"><button class="s-tog on" onclick="this.classList.toggle('on')"></button><span class="s-tog-label">저장</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="s-info-box" style="border-left-color:var(--purple);border-color:rgba(176,108,249,0.3);background:rgba(176,108,249,0.06)">
+            번역 모드에서는 <code>tool_choice: none</code> 강제 적용으로 RAG 검색, Jira, MCP tool 호출이 완전히 차단됩니다. LLM 직통 응답으로 <strong>지연 없이</strong> 빠르게 번역합니다.
+          </div>
+        </div>
+
+        <!-- AGENT.MD -->
+        <div class="sec" id="sec-agentmd">
+          <div class="sec-header">
+            <div class="sec-title">📝 <span>Agent.md</span></div>
+            <div class="sec-desc">매 세션 시작 시 system prompt에 자동으로 포함됩니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">기본 정보</div>
+            <div class="s-form-row"><div class="s-form-label">이름 / 팀</div><div class="s-form-ctrl"><input class="s-input" type="text" value="Yalex / BT 펌웨어팀"></div></div>
+            <div class="s-form-row"><div class="s-form-label">기본 페르소나</div><div class="s-form-ctrl"><select class="s-input"><option selected>BT</option><option>WiFi</option><option>ALL</option></select></div></div>
+            <div class="s-form-row"><div class="s-form-label">응답 언어</div><div class="s-form-ctrl"><select class="s-input"><option selected>한국어</option><option>English</option><option>한국어 + English</option></select></div></div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">개인화 프롬프트</div>
+            <div class="s-agentmd-toolbar">
+              <button class="s-tool-btn" onclick="insertVar('{{name}}')">{{name}}</button>
+              <button class="s-tool-btn" onclick="insertVar('{{team}}')">{{team}}</button>
+              <button class="s-tool-btn" onclick="insertVar('{{persona}}')">{{persona}}</button>
+              <button class="s-tool-btn" onclick="insertVar('{{date}}')">{{date}}</button>
+              <button class="s-tool-btn" onclick="insertVar('{{jira_project}}')">{{jira_project}}</button>
+            </div>
+            <textarea class="s-textarea" id="agentmd-input">## 나에 대해
+- 이름: Yalex
+- 팀: BT 펌웨어 개발팀
+
+## 선호 사항
+- 답변은 한국어로, 코드/용어는 영어 유지
+- 분석 결과는 "원인 → 영향 → 해결 방향" 순으로
+
+## 주요 프로젝트 컨텍스트
+- 담당: BT 5.4 펌웨어 안정화
+- Jira 프로젝트: BT, BT-TEST
+- Gerrit 브랜치: bt-fw/main</textarea>
+            <div class="s-info-box" style="margin-top:8px">
+              <strong>변수</strong> — 세션 시작 시 실제 값으로 치환됩니다.
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px">
+                <span class="s-var-chip" onclick="insertVar('{{name}}')">{{name}} — 이름</span>
+                <span class="s-var-chip" onclick="insertVar('{{team}}')">{{team}} — 팀명</span>
+                <span class="s-var-chip" onclick="insertVar('{{persona}}')">{{persona}} — 페르소나</span>
+                <span class="s-var-chip" onclick="insertVar('{{date}}')">{{date}} — 날짜</span>
+              </div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">고급</div>
+            <div class="s-form-row"><div class="s-form-label">다음 스텝 제안<small>응답 후 자동 제안</small></div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on" onclick="this.classList.toggle('on')"></button><span class="s-tog-label">활성화</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">압축 알림<small>컴팩션 시 표시</small></div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on" onclick="this.classList.toggle('on')"></button><span class="s-tog-label">활성화</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">Tool 상세<small>항상 펼침</small></div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog" onclick="this.classList.toggle('on')"></button><span class="s-tog-label">비활성화</span></div></div></div>
+          </div>
+        </div>
+
+        <!-- UI -->
+        <div class="sec" id="sec-ui">
+          <div class="sec-header">
+            <div class="sec-title">🎨 <span>UI</span> 설정</div>
+            <div class="sec-desc">화면 테마, 폰트, 밀도 등을 조정합니다.</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">테마</div>
+            <div class="s-theme-row">
+              <div class="s-theme-card sel" id="s-theme-dark" onclick="setTheme('dark')">
+                <div class="s-preview s-preview-dark"><div class="s-pbar"></div><div class="s-pbar"></div><div class="s-pbar"></div></div>
+                <div class="s-theme-label">DARK</div>
+              </div>
+              <div class="s-theme-card" id="s-theme-light" onclick="setTheme('light')">
+                <div class="s-preview s-preview-light"><div class="s-pbar"></div><div class="s-pbar"></div><div class="s-pbar"></div></div>
+                <div class="s-theme-label">LIGHT</div>
+              </div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">강조 색상</div>
+            <div class="s-swatches">
+              <div class="s-swatch sel" style="background:#4f9cf9" onclick="setAccent(this,'#4f9cf9','rgba(79,156,249,0.12)','#1a3558')"></div>
+              <div class="s-swatch" style="background:#3ecf8e" onclick="setAccent(this,'#3ecf8e','rgba(62,207,142,0.12)','#0d2e1f')"></div>
+              <div class="s-swatch" style="background:#b06cf9" onclick="setAccent(this,'#b06cf9','rgba(176,108,249,0.12)','#1e1030')"></div>
+              <div class="s-swatch" style="background:#f59e3e" onclick="setAccent(this,'#f59e3e','rgba(245,158,62,0.12)','#2e1f0a')"></div>
+              <div class="s-swatch" style="background:#f96060" onclick="setAccent(this,'#f96060','rgba(249,96,96,0.12)','#2e1010')"></div>
+              <div class="s-swatch" style="background:#6ecfcf" onclick="setAccent(this,'#6ecfcf','rgba(110,207,207,0.12)','#0d2828')"></div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">폰트 크기</div>
+            <div class="s-form-row"><div class="s-form-label">채팅 텍스트</div><div class="s-form-ctrl"><div class="range-wrap"><input type="range" min="11" max="18" step="1" value="13" oninput="document.getElementById('sv-font').textContent=this.value+'px'"><span class="range-val" id="sv-font" style="width:36px">13px</span></div></div></div>
+            <div class="s-form-row" style="margin-top:12px"><div class="s-form-label">폰트</div><div class="s-form-ctrl"><div class="s-font-opts">
+              <div class="s-font-opt sel" onclick="selFont(this)" style="font-family:'IBM Plex Sans KR'">가Aa<small>IBM Plex KR</small></div>
+              <div class="s-font-opt" onclick="selFont(this)" style="font-family:'Noto Sans KR',sans-serif">가Aa<small>Noto Sans KR</small></div>
+              <div class="s-font-opt" onclick="selFont(this)" style="font-family:monospace">가Aa<small>Monospace</small></div>
+            </div></div></div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">채팅 밀도</div>
+            <div class="s-density-row">
+              <div class="s-density-opt" onclick="selDensity(this)"><div>📏</div><div class="s-density-name">COMPACT</div></div>
+              <div class="s-density-opt sel" onclick="selDensity(this)"><div>📐</div><div class="s-density-name">NORMAL</div></div>
+              <div class="s-density-opt" onclick="selDensity(this)"><div>🗂</div><div class="s-density-name">RELAXED</div></div>
+            </div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">기타</div>
+            <div class="s-form-row"><div class="s-form-label">애니메이션<small>스트리밍 효과</small></div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on" onclick="this.classList.toggle('on')"></button><span class="s-tog-label">활성화</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">Tool 카드</div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on" onclick="this.classList.toggle('on')"></button><span class="s-tog-label">활성화</span></div></div></div>
+            <div class="s-form-row"><div class="s-form-label">코드 하이라이트</div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on" onclick="this.classList.toggle('on')"></button><span class="s-tog-label">활성화</span></div></div></div>
+          </div>
+        </div>
+
+      </div><!-- /settings-content -->
+    </div><!-- /settings-layout -->
+  </div><!-- /settings-view -->
+
+
+<script>
+  // ── 페르소나 ──
+  function setPersona(btn, p) {
+    document.querySelectorAll('.persona-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // ── 패널 토글 ──
+  function togglePanel() {
+    const panel = document.getElementById('right-panel');
+    const btn = document.getElementById('panel-toggle-btn');
+    panel.classList.toggle('hidden');
+    btn.classList.toggle('active');
+  }
+
+  // ── 탭 전환 ──
+  function switchTab(btn, tab) {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-mcp').style.display = 'none';
+    document.getElementById('tab-skill').style.display = 'none';
+    document.getElementById('tab-upload').style.display = 'none';
+    document.getElementById('tab-' + tab).style.display = 'block';
+  }
+
+  // ── 모달 ──
+  function showModal() {
+    document.getElementById('modal-overlay').classList.add('show');
+  }
+  function hideModal(e) {
+    if (!e || e.target === document.getElementById('modal-overlay')) {
+      document.getElementById('modal-overlay').classList.remove('show');
+    }
+  }
+
+  // ── 채팅 ──
+  let isStreaming = false;
+  let chatStarted = false;
+
+  function showChat() {
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('chat-demo').style.display = 'block';
+    chatStarted = true;
+    setTimeout(() => {
+      const msgs = document.getElementById('messages');
+      msgs.scrollTop = msgs.scrollHeight;
+    }, 50);
+  }
+
+  function sendQuick(el) {
+    if (!chatStarted) showChat();
+    const txt = el.querySelector('.qp-text')?.textContent || el.textContent;
+    document.getElementById('main-input').value = txt;
+    toggleSend();
+  }
+
+  function toggleSend() {
+    if (!chatStarted) showChat();
+    const btn = document.getElementById('send-btn');
+    if (!isStreaming) {
+      isStreaming = true;
+      btn.textContent = '■';
+      btn.classList.add('stop');
+      // 토큰 카운터 올리기
+      simulateTokenGrowth();
+      setTimeout(() => {
+        isStreaming = false;
+        btn.textContent = '▶';
+        btn.classList.remove('stop');
+        document.getElementById('main-input').value = '';
+      }, 3000);
+    } else {
+      isStreaming = false;
+      btn.textContent = '▶';
+      btn.classList.remove('stop');
+    }
+  }
+
+  function simulateTokenGrowth() {
+    const fill = document.getElementById('token-fill');
+    const text = document.getElementById('token-text');
+    let pct = 22;
+    const iv = setInterval(() => {
+      pct = Math.min(pct + 2, 80);
+      fill.style.width = pct + '%';
+      fill.style.background = pct > 75 ? 'var(--orange)' : 'var(--green)';
+      const k = Math.round(pct * 1.28);
+      text.textContent = `${k}K / 128K`;
+      if (pct >= 80) {
+        clearInterval(iv);
+        document.getElementById('compaction-notice').style.display = 'flex';
+        setTimeout(() => {
+          document.getElementById('compaction-notice').style.display = 'none';
+          fill.style.width = '22%';
+          fill.style.background = 'var(--green)';
+          text.textContent = '28K / 128K';
+        }, 2500);
+      }
+    }, 80);
+  }
+
+  function newChat() {
+    document.getElementById('empty-state').style.display = 'flex';
+    document.getElementById('chat-demo').style.display = 'none';
+    chatStarted = false;
+    document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
+  }
+
+  function selectSession(el) {
+    document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+    showChat();
+  }
+
+  // ── input ──
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      toggleSend();
+    }
+  }
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+  }
+
+  // ── tool chips ──
+  function toggleChip(el) {
+    el.classList.toggle('active');
+  }
+
+  // ── sidebar nav ──
+  function setNav(btn) {
+    document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function showUpload() {
+    const panel = document.getElementById('right-panel');
+    panel.classList.remove('hidden');
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel-tab')[2].classList.add('active');
+    document.getElementById('tab-mcp').style.display = 'none';
+    document.getElementById('tab-skill').style.display = 'none';
+    document.getElementById('tab-upload').style.display = 'block';
+  }
+
+  // ── 언어 전환 ──
+  const LANG = {
+    ko: {
+      'new_chat': '＋ 새 채팅',
+      'today': '오늘',
+      'yesterday': '어제',
+      'this_week': '이번 주',
+      'input.placeholder': '질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)',
+      'input.hint': '전송',
+      'tab.mcp': 'MCP',
+      'tab.skill': 'Skill',
+      'tab.file': '파일',
+      'index.label': '인덱스:',
+      'empty.subtitle': 'BT/WiFi 엔지니어링 AI 어시스턴트\n문서 검색, Jira 분석, Gerrit 리뷰를 자연어로',
+      'qp1.label': 'RAG 검색', 'qp1.text': 'BT 연결 끊김 관련 유사 Jira 이슈 찾아줘',
+      'qp2.label': '스펙 분석', 'qp2.text': 'Bluetooth 5.3 vs 5.4 주요 변경사항 비교해줘',
+      'qp3.label': 'Jira 분석', 'qp3.text': '이번 주 BT 프로젝트 미해결 이슈 요약해줘',
+      'qp4.label': '로그 분석', 'qp4.text': 'HCI_ERR_CONNECTION_TIMEOUT 에러 원인 알려줘',
+      'guide': '📖 가이드', 'release': '🗒 릴리즈 노트', 'support': '🐛 Support', 'settings': '⚙ 설정',
+    },
+    en: {
+      'new_chat': '＋ New Chat',
+      'today': 'Today',
+      'yesterday': 'Yesterday',
+      'this_week': 'This Week',
+      'input.placeholder': 'Ask a question or enter a command... (e.g. Analyze BT-4821)',
+      'input.hint': 'Send',
+      'tab.mcp': 'MCP',
+      'tab.skill': 'Skill',
+      'tab.file': 'Files',
+      'index.label': 'Index:',
+      'empty.subtitle': 'BT/WiFi Engineering AI Assistant\nDoc search, Jira analysis, Gerrit review in natural language',
+      'qp1.label': 'RAG Search', 'qp1.text': 'Find similar Jira issues related to BT disconnection',
+      'qp2.label': 'Spec Analysis', 'qp2.text': 'Compare key changes between Bluetooth 5.3 and 5.4',
+      'qp3.label': 'Jira Analysis', 'qp3.text': 'Summarize unresolved BT project issues this week',
+      'qp4.label': 'Log Analysis', 'qp4.text': 'Explain the cause of HCI_ERR_CONNECTION_TIMEOUT error',
+      'guide': '📖 Guide', 'release': '🗒 Release Notes', 'support': '🐛 Support', 'settings': '⚙ Settings',
+    }
+  };
+
+  let currentLang = localStorage.getItem('lang') || 'ko';
+
+  function setLang(lang, btn) {
+    currentLang = lang;
+    localStorage.setItem('lang', lang);
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    applyLang();
+  }
+
+  function t(key) {
+    return LANG[currentLang]?.[key] ?? LANG['ko'][key] ?? key;
+  }
+
+  function applyLang() {
+    document.querySelector('.new-chat-btn').textContent = t('new_chat');
+    document.querySelectorAll('.sidebar-section').forEach((el, i) => {
+      const keys = ['today', 'yesterday', 'this_week'];
+      if (keys[i]) el.textContent = t(keys[i]);
+    });
+    document.getElementById('main-input').placeholder = t('input.placeholder');
+    document.querySelectorAll('.panel-tab').forEach((el, i) => {
+      const keys = ['tab.mcp', 'tab.skill', 'tab.file'];
+      if (keys[i]) el.textContent = t(keys[i]);
+    });
+    // 빠른 프롬프트
+    const qps = document.querySelectorAll('.quick-prompt');
+    [1,2,3,4].forEach((n, i) => {
+      if (qps[i]) {
+        qps[i].querySelector('.qp-label').textContent = t(`qp${n}.label`);
+        qps[i].querySelector('.qp-text').textContent = t(`qp${n}.text`);
+      }
+    });
+    // empty subtitle
+    const sub = document.querySelector('.empty-subtitle');
+    if (sub) sub.innerHTML = t('empty.subtitle').replace('\n','<br>');
+    // topbar 버튼
+    const topBtns = document.querySelectorAll('.topbar-text-btn');
+    const btnKeys = ['guide', 'release', 'support', 'settings'];
+    topBtns.forEach((el, i) => { if (btnKeys[i]) el.innerHTML = t(btnKeys[i]); });
+
+    document.documentElement.lang = currentLang;
+  }
+
+  // 초기 적용
+  document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('lang') || 'ko';
+    document.querySelectorAll('.lang-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent.toLowerCase() === saved);
+    });
+    applyLang();
+  });
+
+  // ── 설정 패널 토글 ──
+  let settingsOpen = false;
+  function toggleSettings() {
+    settingsOpen = !settingsOpen;
+    const chatArea = document.querySelector('.chat-area');
+    const settingsView = document.getElementById('settings-view');
+    const btn = document.getElementById('settings-toggle-btn');
+    chatArea.style.display = settingsOpen ? 'none' : 'flex';
+    settingsView.classList.toggle('active', settingsOpen);
+    btn.classList.toggle('active', settingsOpen);
+  }
+
+  // ── 설정 섹션 전환 ──
+  function showSec(id, el) {
+    document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('sec-' + id).classList.add('active');
+    el.classList.add('active');
+    document.querySelector('.settings-content').scrollTop = 0;
+  }
+
+  // ── 설정 인터랙션 ──
+  function selectModel(el) {
+    document.querySelectorAll('.model-card').forEach(c => c.classList.remove('sel'));
+    el.classList.add('sel');
+  }
+  function toggleSkillMd(btn) {
+    const preview = btn.closest('.s-skill-row').querySelector('.s-md-preview');
+    const open = preview.classList.toggle('open');
+    preview.style.display = open ? 'block' : 'none';
+    btn.style.color = open ? 'var(--accent)' : '';
+  }
+  function setTheme(t) {
+    document.querySelectorAll('.s-theme-card').forEach(c => c.classList.remove('sel'));
+    document.getElementById('s-theme-' + t).classList.add('sel');
+  }
+  function setAccent(el, c, g, d) {
+    document.querySelectorAll('.s-swatch').forEach(s => s.classList.remove('sel'));
+    el.classList.add('sel');
+    document.documentElement.style.setProperty('--accent', c);
+    document.documentElement.style.setProperty('--accent-glow', g);
+    document.documentElement.style.setProperty('--accent-dim', d);
+  }
+  function selFont(el) { document.querySelectorAll('.s-font-opt').forEach(f => f.classList.remove('sel')); el.classList.add('sel'); }
+  function selDensity(el) { document.querySelectorAll('.s-density-opt').forEach(d => d.classList.remove('sel')); el.classList.add('sel'); }
+  function insertVar(v) {
+    const ta = document.getElementById('agentmd-input');
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    ta.value = ta.value.slice(0, s) + v + ta.value.slice(e);
+    ta.selectionStart = ta.selectionEnd = s + v.length;
+    ta.focus();
+  }
+  function saveAll() {
+    const b = document.getElementById('save-badge');
+    b.classList.add('show');
+    setTimeout(() => b.classList.remove('show'), 2500);
+  }
+  function testConn() {
+    const el = document.getElementById('conn-result');
+    el.style.color = 'var(--orange)'; el.textContent = '연결 중...';
+    setTimeout(() => { el.style.color = 'var(--green)'; el.textContent = '✓ 연결 성공 — GLM4.7, Kimi-K2.5, GPT-OSS-120B'; }, 1200);
+  }
+
+
+  // ── 번역 모드 ──
+  let translateMode = false;
+  let targetLang = 'KO';
+
+  function toggleTranslateMode() {
+    translateMode = !translateMode;
+
+    const btn = document.getElementById('translate-btn');
+    const translateBar = document.getElementById('translate-bar');
+    const indexBar = document.getElementById('index-bar');
+    const inputTools = document.querySelector('.input-tools');
+    const textarea = document.getElementById('main-input');
+    const badge = document.getElementById('topbar-translate-badge');
+
+    if (translateMode) {
+      // 번역 모드 ON
+      btn.classList.add('active');
+      translateBar.classList.add('active');
+      indexBar.classList.add('hidden');
+      inputTools.classList.add('translate-mode');
+      badge.classList.add('show');
+      textarea.placeholder = '번역할 텍스트를 입력하세요... (언어 자동 감지)';
+
+      // 모델을 FAST(Kimi-K2.5)로 자동 전환 제안 표시
+      showTranslateModelHint();
+    } else {
+      // 번역 모드 OFF
+      btn.classList.remove('active');
+      translateBar.classList.remove('active');
+      indexBar.classList.remove('hidden');
+      inputTools.classList.remove('translate-mode');
+      badge.classList.remove('show');
+      textarea.placeholder = '질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)';
+    }
+  }
+
+  function setTargetLang(btn, lang) {
+    document.querySelectorAll('.target-lang-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    targetLang = lang;
+  }
+
+  function showTranslateModelHint() {
+    // 기존 힌트 제거
+    const prev = document.getElementById('translate-model-hint');
+    if (prev) prev.remove();
+
+    const hint = document.createElement('div');
+    hint.id = 'translate-model-hint';
+    hint.style.cssText = `
+      position: fixed; bottom: 80px; right: 24px;
+      background: var(--bg-2); border: 1px solid rgba(176,108,249,0.4);
+      border-radius: 8px; padding: 10px 14px;
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--purple); z-index: 999;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      animation: fadeIn 0.2s ease;
+    `;
+    hint.innerHTML = `
+      <span>⟵⟶ FAST 모델 권장 (tool 없음)</span>
+      <button onclick="switchToFast(); this.parentElement.remove();"
+        style="font-family:var(--font-mono);font-size:10px;padding:3px 8px;
+               border-radius:4px;border:1px solid rgba(176,108,249,0.5);
+               background:rgba(176,108,249,0.15);color:var(--purple);
+               cursor:pointer;">Kimi-K2.5 전환</button>
+      <button onclick="this.parentElement.remove();"
+        style="font-family:var(--font-mono);font-size:10px;padding:3px 8px;
+               border-radius:4px;border:1px solid var(--border-light);
+               background:transparent;color:var(--text-2);cursor:pointer;">유지</button>
+    `;
+    document.body.appendChild(hint);
+    setTimeout(() => { if (hint.parentElement) hint.remove(); }, 5000);
+  }
+
+  function switchToFast() {
+    const sel = document.querySelector('.model-selector select');
+    if (sel) {
+      sel.value = 'Kimi-K2.5';
+      // 선택 시각 피드백
+      sel.style.color = 'var(--purple)';
+      setTimeout(() => sel.style.color = '', 1000);
+    }
+  }
+
+
+  function selDefaultLang(btn) {
+    btn.closest('div').querySelectorAll('.target-lang-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  function insertTVar(v) {
+    const ta = document.getElementById('translate-prompt-input');
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    ta.value = ta.value.slice(0,s) + v + ta.value.slice(e);
+    ta.selectionStart = ta.selectionEnd = s + v.length;
+    ta.focus();
+  }
+
+</script>
+</body>
+</html>

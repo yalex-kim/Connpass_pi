@@ -254,21 +254,30 @@ connpass/
 ├── api/                    # Python Flask API
 │   ├── app.py
 │   ├── routes/
-│   │   ├── jira.py         # Jira 서버 관리 CRUD
-│   │   ├── mcp.py          # MCP 서버 관리 CRUD
-│   │   ├── rag.py
-│   │   ├── skills.py
 │   │   ├── sessions.py
-│   │   └── settings.py
+│   │   ├── mcp.py          # MCP 서버 관리 CRUD
+│   │   ├── skills.py
+│   │   ├── settings.py
+│   │   ├── rag.py
+│   │   ├── jira.py         # Jira 서버 관리 CRUD
+│   │   └── gerrit.py       # Gerrit 서버 관리 CRUD
 │   ├── db/
 │   │   ├── schema.sql
-│   │   └── database.py
+│   │   ├── database.py
+│   │   └── migrate_add_user_id.py
 │   └── requirements.txt
 │
 ├── scripts/                # MCP 서버 시작 스크립트
 │   ├── start-mcp-atlassian.sh
 │   ├── start-gerrit-mcp.sh
 │   └── gerrit_config.json.example
+│
+├── docs/                   # 설계 문서 및 스펙
+│   ├── mockup.html
+│   ├── pi-agent-core-spec.md
+│   ├── pi-ai-spec.md
+│   ├── pi-coding-agent-spec.md
+│   └── ai-service-architecture.md
 │
 ├── data/                   # SQLite DB (자동 생성)
 ├── .env.example
