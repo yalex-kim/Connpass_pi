@@ -257,18 +257,22 @@ const SettingsPanel = {
       testConnBtn.addEventListener('click', () => this._testConnection());
     }
 
-    // Skill md 토글
-    document.querySelectorAll('.skill-md-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const row = btn.closest('.s-skill-row');
-        if (!row) return;
-        const preview = row.querySelector('.s-md-preview');
-        if (!preview) return;
-        const open = preview.classList.toggle('open');
-        preview.style.display = open ? 'block' : 'none';
-        btn.style.color = open ? 'var(--accent)' : '';
+    // Skill 파일 업로드
+    const fileInput = document.getElementById('skill-file-input');
+    const uploadBtn = document.getElementById('skill-upload-btn');
+    const uploadText = document.getElementById('skill-upload-text');
+    if (fileInput && uploadBtn) {
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        uploadBtn.disabled = !file;
+        if (uploadText) uploadText.textContent = file ? file.name : '파일 선택 (.md)';
       });
-    });
+      const uploadLabel = document.getElementById('skill-upload-label');
+      if (uploadLabel) {
+        uploadLabel.addEventListener('click', () => fileInput.click());
+      }
+      uploadBtn.addEventListener('click', () => this._uploadSkill());
+    }
 
     // 기본 타겟 언어 버튼 (번역 설정)
     document.querySelectorAll('.default-lang-btn').forEach(btn => {
@@ -346,6 +350,7 @@ const SettingsPanel = {
     if (section === 'jira') this.loadJiraServers();
     if (section === 'gerrit') this.loadGerritServers();
     if (section === 'mcp') this.loadMcpServers();
+    if (section === 'skill') this.loadSkills();
   },
 
   // ── 모델 설정 로드 (기본 모델 선택 + 공통 파라미터) ──────
@@ -785,11 +790,95 @@ const SettingsPanel = {
       const res = await fetch(`${API_URL}/api/skills`);
       if (!res.ok) return;
       const data = await res.json();
-      // Skills are static in mockup; dynamic rendering is future work
+      this._renderSkills(data.skills || []);
       const badge = document.querySelector('.nav-item[data-section="skill"] .nav-badge');
-      if (badge && data.skills) badge.textContent = data.skills.length;
+      if (badge) badge.textContent = (data.skills || []).length || '';
     } catch (e) {
       // 서버 미연결 시 무시
+    }
+  },
+
+  _renderSkills(skills) {
+    const container = document.getElementById('skills-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (skills.length === 0) {
+      container.innerHTML = '<div style="font-size:11px;color:var(--text-2);padding:8px 0">등록된 Skill이 없습니다.</div>';
+      return;
+    }
+
+    skills.forEach(skill => {
+      const isShared = skill.source === 'shared';
+      const row = document.createElement('div');
+      row.className = 's-skill-row';
+      row.innerHTML = `
+        <div class="s-skill-head">
+          <div class="s-skill-info">
+            <div class="s-skill-name">${this._esc(skill.name)}</div>
+            <div class="s-skill-desc">${this._esc(skill.description)}</div>
+          </div>
+          <div class="s-mcp-acts">
+            <button class="s-btn-sm skill-md-toggle-btn" data-dir="${this._esc(skill.dir_name)}">SKILL.md</button>
+            ${isShared
+              ? '<span style="font-size:10px;color:var(--text-2);padding:0 4px">공유</span>'
+              : `<button class="s-btn-sm s-danger" onclick="SettingsPanel._deleteSkill('${this._esc(skill.dir_name)}','${this._esc(skill.name)}')">삭제</button>`
+            }
+          </div>
+        </div>
+        <div class="s-md-preview" style="display:none"><pre style="margin:0;font-size:10px;white-space:pre-wrap">${this._esc(skill.content)}</pre></div>
+      `;
+      // SKILL.md 토글
+      row.querySelector('.skill-md-toggle-btn').addEventListener('click', function () {
+        const preview = row.querySelector('.s-md-preview');
+        const open = preview.style.display === 'none';
+        preview.style.display = open ? 'block' : 'none';
+        this.style.color = open ? 'var(--accent)' : '';
+      });
+      container.appendChild(row);
+    });
+  },
+
+  async _uploadSkill() {
+    const fileInput = document.getElementById('skill-file-input');
+    const file = fileInput?.files?.[0];
+    if (!file) return;
+
+    const uploadBtn = document.getElementById('skill-upload-btn');
+    if (uploadBtn) uploadBtn.disabled = true;
+
+    try {
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_URL}/api/skills/upload`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '업로드 실패');
+      if (typeof showToast !== 'undefined') showToast(`"${data.name}" Skill 추가됨`, 'success');
+      fileInput.value = '';
+      const uploadText = document.getElementById('skill-upload-text');
+      if (uploadText) uploadText.textContent = '파일 선택 (.md)';
+      await this.loadSkills();
+    } catch (e) {
+      if (typeof showToast !== 'undefined') showToast('업로드 실패: ' + e.message, 'error');
+    } finally {
+      if (uploadBtn) uploadBtn.disabled = false;
+    }
+  },
+
+  async _deleteSkill(dirName, name) {
+    if (!confirm(`"${name}" Skill을 삭제하시겠습니까?`)) return;
+    try {
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/skills/${encodeURIComponent(dirName)}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '삭제 실패');
+      }
+      if (typeof showToast !== 'undefined') showToast(`"${name}" 삭제됨`, 'success');
+      await this.loadSkills();
+    } catch (e) {
+      if (typeof showToast !== 'undefined') showToast('삭제 실패: ' + e.message, 'error');
     }
   },
 

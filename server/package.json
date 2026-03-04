@@ -9,6 +9,7 @@
   "dependencies": {
     "@mariozechner/pi-ai": "latest",
     "@mariozechner/pi-agent-core": "latest",
+    "@mariozechner/pi-coding-agent": "latest",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "ws": "^8",
     "dotenv": "^16",

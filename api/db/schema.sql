@@ -37,32 +37,6 @@ CREATE TABLE IF NOT EXISTS mcp_servers (
     created_at  TEXT NOT NULL
 );
 
--- 스킬 테이블
-CREATE TABLE IF NOT EXISTS skills (
-    id          TEXT PRIMARY KEY,
-    user_id     TEXT NOT NULL DEFAULT 'default',
-    name        TEXT NOT NULL,
-    description TEXT,
-    content     TEXT NOT NULL,  -- SKILL.md 원본 또는 프롬프트
-    tools       TEXT,           -- JSON 배열 (허용 tool 목록)
-    indexes     TEXT,           -- JSON 배열 (RAG 인덱스 목록)
-    persona     TEXT,
-    enabled     INTEGER NOT NULL DEFAULT 1,
-    created_at  TEXT NOT NULL
-);
-
--- Cron 잡 테이블
-CREATE TABLE IF NOT EXISTS cron_jobs (
-    id              TEXT PRIMARY KEY,
-    skill_id        TEXT NOT NULL,
-    user_id         TEXT NOT NULL DEFAULT 'default',
-    schedule        TEXT NOT NULL,  -- cron 표현식 (예: "0 9 * * 1-5")
-    notify_type     TEXT,           -- 'email' | 'slack' | null
-    notify_target   TEXT,           -- 알림 대상 (이메일 주소, Slack 채널 등)
-    last_run        TEXT,
-    enabled         INTEGER NOT NULL DEFAULT 1,
-    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
-);
 
 -- 사용량 로그 테이블
 CREATE TABLE IF NOT EXISTS usage_logs (
@@ -143,8 +117,6 @@ CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_mcp_servers_user_id ON mcp_servers(user_id);
-CREATE INDEX IF NOT EXISTS idx_skills_user_id ON skills(user_id);
-CREATE INDEX IF NOT EXISTS idx_cron_jobs_skill_id ON cron_jobs(skill_id);
 CREATE INDEX IF NOT EXISTS idx_usage_logs_user_id ON usage_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON usage_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_llm_model_configs_user_id ON llm_model_configs(user_id);

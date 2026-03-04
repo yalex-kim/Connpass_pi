@@ -1,10 +1,21 @@
 import { Agent } from "@mariozechner/pi-agent-core";
 import { streamSimple } from "@mariozechner/pi-ai";
+import { loadSkills, formatSkillsForPrompt } from "@mariozechner/pi-coding-agent";
 import type { WebSocket } from "ws";
+import path from "path";
+import { fileURLToPath } from "url";
 import { resolveModel, models } from "./models.js";
 import { ragTool } from "./tools/rag.js";
 import { loadAllMcpTools } from "./tools/mcp.js";
-import { skillTool } from "./tools/skill.js";
+import { getCodingTools } from "./tools/coding.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SKILLS_DIR = process.env.SKILLS_DIR
+  ? path.resolve(process.env.SKILLS_DIR)
+  : path.join(__dirname, "../../skills");
+const USER_SKILLS_BASE = process.env.USER_SKILLS_DIR
+  ? path.resolve(process.env.USER_SKILLS_DIR)
+  : path.join(__dirname, "../../skills-user");
 
 const FLASK_URL = process.env.FLASK_API_URL ?? "http://localhost:5000";
 
@@ -43,13 +54,17 @@ async function buildSystemPrompt(_sessionId: string, userId: string): Promise<st
     }
   } catch { /* 기본 프롬프트 사용 */ }
 
+  const userSkillsDir = path.join(USER_SKILLS_BASE, userId);
+  const { skills } = loadSkills({ skillPaths: [SKILLS_DIR, userSkillsDir], includeDefaults: false });
+  const skillsSection = formatSkillsForPrompt(skills);
+
   return `당신은 BT/WiFi 펌웨어 엔지니어링팀을 위한 AI 어시스턴트 Connpass입니다.
 
 사내 문서 검색(RAG), Jira 이슈 조회/검색, Gerrit 코드리뷰 등을 지원합니다.
 기술 용어는 원문(영어)을 우선 사용하고, 한국어로 답변합니다.
 답변 마지막에는 관련 후속 액션을 1~3개 제안해주세요.
 ${jiraServersSection}
-${agentMd ? `\n---\n사용자 커스텀 지시사항:\n${agentMd}` : ""}`;
+${agentMd ? `\n---\n사용자 커스텀 지시사항:\n${agentMd}` : ""}${skillsSection}`;
 }
 
 export async function createAgent(
@@ -76,7 +91,9 @@ export async function createAgent(
   // tool 목록 구성
   const toolList = [];
   if (config.tools.includes("rag")) toolList.push(ragTool(config.indexes));
-  if (config.tools.includes("skill")) toolList.push(skillTool());
+
+  // pi-coding-agent 내장 tool (bash, read, write, edit, grep, find, ls)
+  toolList.push(...getCodingTools());
 
   // 로컬 MCP 서버 툴 동적 로드 (Jira, Gerrit 등 모두 포함)
   const mcpTools = await loadAllMcpTools(userId).catch(() => []);

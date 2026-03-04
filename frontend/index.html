@@ -462,33 +462,22 @@
         <div class="sec" id="sec-skill">
           <div class="sec-header">
             <div class="sec-title">⚙️ <span>Skill</span> 관리</div>
-            <div class="sec-desc">SKILL.md 기반 워크플로우를 관리합니다. Cron으로 자동 실행하거나 채팅 중 호출할 수 있습니다.</div>
+            <div class="sec-desc">SKILL.md 기반 워크플로우. 공유 Skill은 관리자가 파일로 관리하고, 개인 Skill은 .md 파일을 업로드해 추가합니다. 서버 재시작 없이 즉시 반영됩니다.</div>
           </div>
           <div class="s-card">
             <div class="s-card-title">등록된 Skill</div>
-            <div class="s-skill-row">
-              <div class="s-skill-head"><div class="s-skill-emoji">📊</div><div class="s-skill-info"><div class="s-skill-name">주간 BT 이슈 요약</div><div class="s-skill-desc">매주 월요일 오전 9시 BT 프로젝트 미해결 이슈를 요약하고 담당자별로 정리합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm skill-md-toggle-btn">SKILL.md</button><button class="s-btn-sm">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
-              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span><span class="s-stag s-stag-cron">⏰ Cron</span><span class="s-cron-text">0 9 * * 1 — 다음 실행: 월 09:00</span></div>
-              <div class="s-md-preview"><span class="md-key">name:</span> <span class="md-val">weekly-bt-summary</span>
-<span class="md-key">tools:</span> <span class="md-val">["jira","rag_search"]</span>
-<span class="md-key">cron:</span> <span class="md-val">"0 9 * * 1"</span></div>
+            <div id="skills-list"></div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-title">내 Skill 추가</div>
+            <div style="font-size:11px;color:var(--text-2);margin-bottom:8px">
+              frontmatter에 <code>name</code>과 <code>description</code>이 있는 .md 파일을 업로드하세요.
             </div>
-            <div class="s-skill-row">
-              <div class="s-skill-head"><div class="s-skill-emoji">🔍</div><div class="s-skill-info"><div class="s-skill-name">RCA 유사 이슈 검색</div><div class="s-skill-desc">로그 파일 첨부 시 HCI 에러 패턴을 추출하고 과거 유사 이슈를 연결합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm skill-md-toggle-btn">SKILL.md</button><button class="s-btn-sm">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
-              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span><span class="s-stag s-stag-wifi">WiFi</span></div>
-              <div class="s-md-preview">SKILL.md 내용...</div>
-            </div>
-            <div class="s-skill-row">
-              <div class="s-skill-head"><div class="s-skill-emoji">📝</div><div class="s-skill-info"><div class="s-skill-name">Gerrit 코드 리뷰 도우미</div><div class="s-skill-desc">CR 번호 입력 시 diff를 분석하고 BT Spec 기준 리뷰 코멘트 초안을 작성합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm skill-md-toggle-btn">SKILL.md</button><button class="s-btn-sm">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
-              <div class="s-skill-footer"><span class="s-stag s-stag-bt">BT</span></div>
-              <div class="s-md-preview">SKILL.md 내용...</div>
-            </div>
-            <div class="s-skill-row">
-              <div class="s-skill-head"><div class="s-skill-emoji">📡</div><div class="s-skill-info"><div class="s-skill-name">WiFi 인증 실패 분석</div><div class="s-skill-desc">802.11 연결 로그 분석 및 인증 단계별 실패 원인을 진단합니다.</div></div><div class="s-mcp-acts"><button class="s-btn-sm skill-md-toggle-btn">SKILL.md</button><button class="s-btn-sm">편집</button><button class="s-btn-sm s-danger">삭제</button></div></div>
-              <div class="s-skill-footer"><span class="s-stag s-stag-wifi">WiFi</span></div>
-              <div class="s-md-preview">SKILL.md 내용...</div>
-            </div>
-            <button class="s-add-btn">✨ 자연어로 새 Skill 생성</button>
+            <label class="s-upload-label" id="skill-upload-label">
+              <input type="file" id="skill-file-input" accept=".md" style="display:none">
+              <span id="skill-upload-text">파일 선택 (.md)</span>
+            </label>
+            <button class="s-add-btn" id="skill-upload-btn" style="margin-top:8px" disabled>업로드</button>
           </div>
         </div>
 

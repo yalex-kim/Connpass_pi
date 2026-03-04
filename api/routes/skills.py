@@ -1,208 +1,113 @@
-import uuid
-import datetime
-import json
-from flask import Blueprint, request, jsonify, g
-from ..db.database import get_db
+import os
+import re
+import shutil
+from flask import Blueprint, g, request, jsonify
 
-skills_bp = Blueprint("skills", __name__, url_prefix="/api/skills")
+skills_bp = Blueprint("skills", __name__)
 
-
-def row_to_dict(row):
-    return dict(row) if row else None
+SHARED_SKILLS_DIR = os.path.abspath(os.environ.get("SKILLS_DIR", "./skills"))
+USER_SKILLS_BASE = os.path.abspath(os.environ.get("USER_SKILLS_DIR", "./skills-user"))
 
 
-def rows_to_list(rows):
-    return [dict(row) for row in rows]
+def _parse_frontmatter(content: str) -> dict:
+    """SKILL.md frontmatter 파싱 (YAML 라이브러리 없이)."""
+    if not content.startswith("---"):
+        return {}
+    end = content.find("---", 3)
+    if end == -1:
+        return {}
+    fm: dict = {}
+    for line in content[3:end].splitlines():
+        if ":" in line:
+            key, _, val = line.partition(":")
+            fm[key.strip()] = val.strip()
+    return fm
 
 
-def parse_json_field(value):
-    """JSON 문자열 필드를 파이썬 객체로 변환."""
-    if not value:
-        return None
-    if isinstance(value, (list, dict)):
-        return value
-    try:
-        return json.loads(value)
-    except Exception:
-        return value
+def _scan_dir(base_dir: str, source: str) -> list:
+    """디렉토리에서 SKILL.md 파일 스캔."""
+    skills = []
+    if not os.path.isdir(base_dir):
+        return skills
+    for entry in sorted(os.listdir(base_dir)):
+        skill_dir = os.path.join(base_dir, entry)
+        skill_file = os.path.join(skill_dir, "SKILL.md")
+        if not (os.path.isdir(skill_dir) and os.path.isfile(skill_file)):
+            continue
+        try:
+            with open(skill_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            fm = _parse_frontmatter(content)
+            name = fm.get("name") or entry
+            description = fm.get("description", "")
+            if not description:
+                continue  # description 없으면 스킵 (agentskills.io 스펙)
+            skills.append({
+                "dir_name": entry,
+                "name": name,
+                "description": description,
+                "source": source,  # 'shared' | 'user'
+                "content": content,
+            })
+        except Exception:
+            continue
+    return skills
 
 
-def serialize_json_field(value):
-    """파이썬 객체를 JSON 문자열로 직렬화."""
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value
-    return json.dumps(value, ensure_ascii=False)
-
-
-def enrich_skill(skill_dict: dict) -> dict:
-    """스킬 dict의 JSON 필드들을 파이썬 객체로 변환."""
-    if skill_dict is None:
-        return None
-    skill_dict["tools"] = parse_json_field(skill_dict.get("tools"))
-    skill_dict["indexes"] = parse_json_field(skill_dict.get("indexes"))
-    return skill_dict
-
-
-@skills_bp.get("")
+@skills_bp.get("/api/skills")
 def list_skills():
-    """스킬 목록 조회."""
+    shared = _scan_dir(SHARED_SKILLS_DIR, "shared")
+    user_dir = os.path.join(USER_SKILLS_BASE, g.user_id)
+    user = _scan_dir(user_dir, "user")
+    return jsonify({"skills": shared + user})
+
+
+@skills_bp.post("/api/skills/upload")
+def upload_skill():
+    if "file" not in request.files:
+        return jsonify({"error": "파일이 없습니다"}), 400
+
+    f = request.files["file"]
+    if not f.filename or not f.filename.endswith(".md"):
+        return jsonify({"error": ".md 파일만 업로드 가능합니다"}), 400
+
     try:
-        db = get_db()
-        rows = db.execute(
-            """
-            SELECT id, name, description, tools, indexes, persona, enabled, created_at
-            FROM skills
-            WHERE user_id = ? AND enabled = 1
-            ORDER BY created_at DESC
-            """,
-            (g.user_id,),
-        ).fetchall()
-        result = [enrich_skill(dict(row)) for row in rows]
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        content = f.read().decode("utf-8")
+    except Exception:
+        return jsonify({"error": "파일 인코딩 오류 (UTF-8 필요)"}), 400
+
+    fm = _parse_frontmatter(content)
+    name = fm.get("name", "").strip()
+    description = fm.get("description", "").strip()
+
+    if not name:
+        return jsonify({"error": "frontmatter에 name이 필요합니다"}), 400
+    if not description:
+        return jsonify({"error": "frontmatter에 description이 필요합니다"}), 400
+
+    # name → 디렉토리명 변환 (소문자, 하이픈만)
+    dir_name = re.sub(r"[^a-z0-9-]", "-", name.lower()).strip("-")
+    dir_name = re.sub(r"-{2,}", "-", dir_name)
+    if not dir_name:
+        return jsonify({"error": "유효하지 않은 skill 이름입니다"}), 400
+
+    user_dir = os.path.join(USER_SKILLS_BASE, g.user_id, dir_name)
+    os.makedirs(user_dir, exist_ok=True)
+
+    with open(os.path.join(user_dir, "SKILL.md"), "w", encoding="utf-8") as out:
+        out.write(content)
+
+    return jsonify({"dir_name": dir_name, "name": name, "source": "user"}), 201
 
 
-@skills_bp.post("")
-def create_skill():
-    """스킬 등록 (SKILL.md 형태 파싱)."""
-    try:
-        body = request.get_json(silent=True) or {}
-        name = body.get("name")
-        content = body.get("content")
+@skills_bp.delete("/api/skills/<dir_name>")
+def delete_skill(dir_name):
+    if not re.match(r"^[a-z0-9-]+$", dir_name):
+        return jsonify({"error": "유효하지 않은 skill 이름입니다"}), 400
 
-        if not name or not content:
-            return jsonify({"error": "name and content are required"}), 400
+    user_dir = os.path.join(USER_SKILLS_BASE, g.user_id, dir_name)
+    if not os.path.isdir(user_dir):
+        return jsonify({"error": "Skill을 찾을 수 없거나 공유 Skill은 삭제할 수 없습니다"}), 404
 
-        skill_id = str(uuid.uuid4())
-        now = datetime.datetime.utcnow().isoformat()
-
-        description = body.get("description")
-        tools = serialize_json_field(body.get("tools"))
-        indexes = serialize_json_field(body.get("indexes"))
-        persona = body.get("persona")
-
-        db = get_db()
-        db.execute(
-            """
-            INSERT INTO skills (id, user_id, name, description, content, tools, indexes, persona, enabled, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-            """,
-            (skill_id, g.user_id, name, description, content, tools, indexes, persona, now),
-        )
-        db.commit()
-
-        row = db.execute(
-            "SELECT id, name, description, content, tools, indexes, persona, enabled, created_at FROM skills WHERE id = ?",
-            (skill_id,),
-        ).fetchone()
-        return jsonify(enrich_skill(row_to_dict(row))), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@skills_bp.put("/<skill_id>")
-def update_skill(skill_id):
-    """스킬 업데이트."""
-    try:
-        body = request.get_json(silent=True) or {}
-        db = get_db()
-
-        row = db.execute(
-            "SELECT id FROM skills WHERE id = ? AND user_id = ?",
-            (skill_id, g.user_id),
-        ).fetchone()
-        if row is None:
-            return jsonify({"error": "Skill not found"}), 404
-
-        allowed_fields = {
-            "name": str,
-            "description": str,
-            "content": str,
-            "persona": str,
-            "enabled": int,
-        }
-        json_fields = {"tools", "indexes"}
-
-        updates = []
-        values = []
-
-        for field, field_type in allowed_fields.items():
-            if field in body:
-                updates.append(f"{field} = ?")
-                values.append(field_type(body[field]) if body[field] is not None else None)
-
-        for field in json_fields:
-            if field in body:
-                updates.append(f"{field} = ?")
-                values.append(serialize_json_field(body[field]))
-
-        if not updates:
-            return jsonify({"error": "No fields to update"}), 400
-
-        values.append(skill_id)
-        db.execute(
-            f"UPDATE skills SET {', '.join(updates)} WHERE id = ?",
-            values,
-        )
-        db.commit()
-
-        updated = db.execute(
-            "SELECT id, name, description, content, tools, indexes, persona, enabled, created_at FROM skills WHERE id = ?",
-            (skill_id,),
-        ).fetchone()
-        return jsonify(enrich_skill(row_to_dict(updated)))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@skills_bp.delete("/<skill_id>")
-def delete_skill(skill_id):
-    """스킬 삭제 (enabled=0 soft delete)."""
-    try:
-        db = get_db()
-        row = db.execute(
-            "SELECT id FROM skills WHERE id = ? AND user_id = ?",
-            (skill_id, g.user_id),
-        ).fetchone()
-        if row is None:
-            return jsonify({"error": "Skill not found"}), 404
-
-        db.execute("UPDATE skills SET enabled = 0 WHERE id = ?", (skill_id,))
-        db.commit()
-        return jsonify({"deleted": skill_id, "soft_delete": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@skills_bp.post("/<skill_id>/run")
-def run_skill(skill_id):
-    """스킬 수동 실행 (현재는 content 반환 스텁)."""
-    try:
-        db = get_db()
-        row = db.execute(
-            "SELECT id, name, description, content, tools, indexes, persona, enabled FROM skills WHERE id = ? AND user_id = ?",
-            (skill_id, g.user_id),
-        ).fetchone()
-
-        if row is None:
-            return jsonify({"error": "Skill not found"}), 404
-
-        skill = enrich_skill(row_to_dict(row))
-
-        if not skill.get("enabled"):
-            return jsonify({"error": "Skill is disabled"}), 403
-
-        # 스텁: 실제 실행은 Node.js Agent loop에서 처리 예정
-        # 현재는 스킬 content와 메타데이터 반환
-        return jsonify({
-            "status": "stub",
-            "skill_id": skill_id,
-            "name": skill["name"],
-            "content": skill["content"],
-            "message": "Skill execution will be handled by the Node.js Agent loop",
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    shutil.rmtree(user_dir)
+    return jsonify({"deleted": dir_name})

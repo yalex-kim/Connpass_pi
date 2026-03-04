@@ -1313,6 +1313,9 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; h
 
 .s-add-btn { display:flex; align-items:center; gap:7px; padding:9px 12px; background:transparent; border:1px dashed var(--border-light); border-radius:8px; color:var(--text-2); font-family:var(--font-mono); font-size:11px; cursor:pointer; width:100%; transition:all 0.15s; margin-top:6px; }
 .s-add-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-glow); }
+.s-add-btn:disabled { opacity:0.4; cursor:not-allowed; pointer-events:none; }
+.s-upload-label { display:flex; align-items:center; gap:7px; padding:9px 12px; background:var(--bg-2); border:1px solid var(--border); border-radius:6px; color:var(--text-2); font-family:var(--font-mono); font-size:11px; cursor:pointer; width:100%; transition:border-color 0.15s; box-sizing:border-box; }
+.s-upload-label:hover { border-color:var(--accent); color:var(--accent); }
 .s-add-form { background:var(--bg-2); border:1px dashed var(--border-light); border-radius:8px; padding:14px; margin-top:8px; display:none; }
 .s-add-form.open { display:block; }
 .s-add-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:4px; }

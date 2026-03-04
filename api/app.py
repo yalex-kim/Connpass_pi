@@ -7,9 +7,9 @@ from .routes.sessions import sessions_bp
 from .routes.rag import rag_bp
 from .routes.jira import jira_bp
 from .routes.mcp import mcp_bp
-from .routes.skills import skills_bp
 from .routes.settings import settings_bp
 from .routes.gerrit import gerrit_bp
+from .routes.skills import skills_bp
 
 load_dotenv()
 
@@ -28,9 +28,9 @@ def create_app():
     app.register_blueprint(rag_bp)
     app.register_blueprint(jira_bp)
     app.register_blueprint(mcp_bp)
-    app.register_blueprint(skills_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(gerrit_bp)
+    app.register_blueprint(skills_bp)
 
     @app.get("/health")
     def health():
