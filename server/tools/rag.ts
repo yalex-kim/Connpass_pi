@@ -3,6 +3,20 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 
 const RAGAAS_URL = process.env.RAGAAS_URL ?? "http://ragaas.internal";
 
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const resp = await fetch(url, options);
+      if (resp.ok || resp.status < 500) return resp;
+      throw new Error(`HTTP ${resp.status}`);
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      await new Promise(r => setTimeout(r, 500 * 2 ** attempt)); // 500ms → 1s
+    }
+  }
+  throw new Error("unreachable");
+}
+
 const ragSearchParams = Type.Object({
   query: Type.String({ description: "검색할 쿼리 문자열" }),
   indexes: Type.Optional(Type.Array(Type.String(), { description: "검색할 RAG 인덱스 ID 목록. 미지정 시 활성 인덱스 전체" })),
@@ -19,7 +33,7 @@ BT/WiFi 스펙, Confluence 위키, Jira 이슈, Gerrit 코드, Requirement 문�
     parameters: ragSearchParams,
     execute: async (toolCallId, params, signal) => {
       const indexes = params.indexes ?? activeIndexes;
-      const res = await fetch(`${RAGAAS_URL}/search`, {
+      const res = await fetchWithRetry(`${RAGAAS_URL}/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: params.query, indexes, topK: params.topK ?? 5 }),

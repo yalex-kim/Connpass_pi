@@ -1,5 +1,6 @@
 import { Router } from "express";
 import db from "../db.js";
+import { invalidateMcpClient } from "../tools/mcp.js";
 
 const router = Router();
 const MCP_PROTOCOL_VERSION = "2024-11-05";
@@ -87,6 +88,7 @@ router.delete("/servers/:id", (req, res) => {
     if (!db.prepare("SELECT id FROM mcp_servers WHERE id = ?").get(req.params.id))
       return res.status(404).json({ error: "Server not found" });
     db.prepare("DELETE FROM mcp_servers WHERE id = ?").run(req.params.id);
+    invalidateMcpClient(req.params.id);
     res.json({ deleted: req.params.id });
   } catch (err) {
     res.status(500).json({ error: String(err) });

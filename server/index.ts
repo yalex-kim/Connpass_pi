@@ -17,6 +17,20 @@ import gerritRouter from "./routes/gerrit.js";
 import skillsRouter from "./routes/skills.js";
 
 const PORT = parseInt(process.env.WS_PORT ?? "5001", 10);
+
+// ─── 재시작 복구: 이전 세션에서 generating=1 상태로 남은 세션 처리 ──────────────
+{
+  const stuck = db.prepare("SELECT id FROM sessions WHERE generating = 1").all() as Array<{ id: string }>;
+  for (const { id } of stuck) {
+    const msgId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    db.prepare("INSERT INTO messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)").run(
+      msgId, id, "assistant", JSON.stringify("서버가 재시작되어 응답이 중단되었습니다. 다시 질문해 주세요."), now
+    );
+    db.prepare("UPDATE sessions SET generating = 0, updated_at = ? WHERE id = ?").run(now, id);
+  }
+  if (stuck.length > 0) console.log(`[Connpass] 재시작 복구: ${stuck.length}개 세션 처리됨`);
+}
 const RAGAAS_URL = process.env.RAGAAS_URL ?? "http://ragaas.internal";
 const VLLM_BASE_URL = process.env.VLLM_BASE_URL ?? "http://vllm.internal/v1";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
@@ -242,6 +256,7 @@ wss.on("connection", (ws: WebSocket, req) => {
       if (history.length > 0) agent.replaceMessages(history);
 
       saveMessage(sessionId, "user", message);
+      db.prepare("UPDATE sessions SET generating = 1 WHERE id = ?").run(sessionId);
 
       try {
         await agent.prompt(message);
@@ -259,6 +274,7 @@ wss.on("connection", (ws: WebSocket, req) => {
           ws.send(JSON.stringify({ type: "error", sessionId, message: String(err), code: "AGENT_ERROR" }));
         }
       } finally {
+        db.prepare("UPDATE sessions SET generating = 0 WHERE id = ?").run(sessionId);
         sessions.delete(sessionId);
       }
       return;
