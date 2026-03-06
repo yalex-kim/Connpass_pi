@@ -7,15 +7,7 @@ BT/WiFi 펌웨어 엔지니어링팀을 위한 사내 전용 AI 채팅 서비스
 
 ## 아키텍처
 
-```
-[브라우저 — Vanilla JS]
-    ↕ WebSocket
-[Node.js 서버]  ← pi-agent-core Agent loop
-    ↕ HTTP REST              ↕ MCP (streamable-http)
-[Flask API]          [로컬 MCP 서버]
-    ↕                    ├── mcp-atlassian :9001  → Atlassian Cloud (Jira, Confluence)
-[SQLite DB]              └── gerrit-mcp    :9002  → 사내 Gerrit
-```
+### 기술 스택
 
 | 레이어 | 기술 |
 |--------|------|
@@ -27,6 +19,157 @@ BT/WiFi 펌웨어 엔지니어링팀을 위한 사내 전용 AI 채팅 서비스
 | DB | SQLite |
 | Jira/Confluence | `sooperset/mcp-atlassian` (로컬 MCP 서버) |
 | Gerrit | `GerritCodeReview/gerrit-mcp-server` + `supergateway` |
+
+### 전체 시스템 구조
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         BROWSER (Vanilla JS)                                │
+│                                                                             │
+│  ┌──────────────┐  ┌────────────────┐  ┌──────────────────────────────┐   │
+│  │  app.js      │  │  chat.js       │  │  settings.js                 │   │
+│  │  (WS클라이언트│  │  (메시지렌더링 │  │  (설정패널: 모델/MCP/Jira/   │   │
+│  │   UI이벤트   │  │   마크다운/코드 │  │   Gerrit/RAG/스킬/Agent.md) │   │
+│  │   전역state) │  │   하이라이트)  │  │                              │   │
+│  └──────┬───────┘  └───────┬────────┘  └──────────────────────────────┘   │
+│         │                  │                                                │
+│  window.state: { model, indexes, tools, temperature, isTranslateMode ... } │
+└──────────┼─────────────────┼──────────────────────────────────────────────┘
+           │                 │
+           │  WebSocket :3000 (X-User-Id 헤더)
+           │  msg type: chat | translate | stop | sessions.list | sessions.delete
+           │
+┌──────────▼─────────────────────────────────────────────────────────────────┐
+│                     NODE.JS 서버 (server/)                                  │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  index.ts  —  WebSocket 서버 + Express (정적파일 서빙 + /api 프록시) │   │
+│  │                                                                     │   │
+│  │  req.headers["x-user-id"] ?? "default"  →  userId                  │   │
+│  │  Map<sessionId, { agent, AbortController }>  (세션 상태 관리)        │   │
+│  │                                                                     │   │
+│  │  chat      →  createAgent()  →  agent.prompt()                      │   │
+│  │  translate →  translateDirect()  →  streamSimple() 직통             │   │
+│  │  stop      →  controller.abort() + agent.abort()                   │   │
+│  └──────────────────┬──────────────────────────────────────────────────┘   │
+│                     │                                                       │
+│  ┌──────────────────▼──────────────────────────────────────────────────┐   │
+│  │  agent.ts  —  pi-agent-core Agent 설정                               │   │
+│  │                                                                     │   │
+│  │  1. resolveModel()       →  Flask /api/settings/llm-configs/{id}    │   │
+│  │  2. buildSystemPrompt()  →  Flask /api/settings (agent_md)          │   │
+│  │  3. Tool 등록:                                                       │   │
+│  │     ├─ ragTool()          (tools/rag.ts)                            │   │
+│  │     ├─ getCodingTools()   (tools/coding.ts)                         │   │
+│  │     └─ loadAllMcpTools()  (tools/mcp.ts)                            │   │
+│  │  4. Agent.subscribe() → WS.send(token | tool_start | tool_end)      │   │
+│  └──────────────────┬──────────────────────────────────────────────────┘   │
+│                     │                                                       │
+│  ┌────────┐  ┌──────┴──────┐  ┌──────────────────────────────────────┐    │
+│  │models  │  │translate.ts │  │  tools/                               │    │
+│  │.ts     │  │(번역 직통)  │  │  ├─ rag.ts    → POST /api/rag/search │    │
+│  │GLM4.7  │  │streamSimple │  │  ├─ coding.ts → pi-coding-agent       │    │
+│  │KimiK2.5│  │()만 호출    │  │  │   (bash/read/write/edit/grep/find) │    │
+│  │GPT-OSS │  │             │  │  └─ mcp.ts   → MCP 서버 동적 연결    │    │
+│  └────────┘  └─────────────┘  └──────────────────────────────────────┘    │
+└──────────────────────┬──────────────────────────────────────────────────────┘
+                       │
+          ┌────────────┼──────────────────────────┐
+          │            │                          │
+    HTTP REST     streamSimple()            MCP clients
+    (X-User-Id)   vLLM 직통 호출      (StreamableHTTP/SSE)
+          │            │                          │
+┌─────────▼────┐  ┌────▼──────────────┐  ┌───────▼────────────────┐
+│  FLASK API   │  │  사내 vLLM        │  │  MCP 서버들            │
+│  (api/)      │  │                   │  │                        │
+│  :5000       │  │  OpenAI 호환 API  │  │  ┌─ mcp-atlassian     │
+│              │  │  ├─ GLM4.7        │  │  │  (Jira) :9001      │
+│  before_req  │  │  ├─ Kimi-K2.5     │  │  └─ gerrit-mcp        │
+│  g.user_id = │  │  └─ GPT-OSS-120B  │  │     :9002             │
+│  X-User-Id   │  │                   │  │  + 사용자 등록 커스텀  │
+│  헤더        │  └───────────────────┘  └────────────────────────┘
+│              │
+│  Routes:     │  ┌─────────────────────────────────────────────────────┐
+│  /sessions   │  │  RAGaaS (사내)                                       │
+│  /rag    ────┼──▶  OpenAI 호환 임베딩                                  │
+│  /mcp        │  │  POST /search → 유사 문서 반환 (BT/WiFi 문서)        │
+│  /settings   │  └─────────────────────────────────────────────────────┘
+│  /skills     │
+│  /jira       │  ┌─────────────────────────────────────────────────────┐
+│  /gerrit     │  │  SQLite  data/connpass.db                           │
+│              │  │                                                     │
+└──────────────┘  │  ┌─────────────────┬──────────────────────────┐    │
+                  │  │  사용자별 격리   │  전체 공유               │    │
+                  │  ├─────────────────┼──────────────────────────┤    │
+                  │  │ sessions        │ jira_servers             │    │
+                  │  │ messages        │ gerrit_servers           │    │
+                  │  │ user_settings   │ llm_model_configs        │    │
+                  │  │ mcp_servers     │ (is_builtin=1)           │    │
+                  │  │ skills          │                          │    │
+                  │  │ usage_logs      │                          │    │
+                  │  └─────────────────┴──────────────────────────┘    │
+                  └─────────────────────────────────────────────────────┘
+```
+
+### 메시지 흐름 (Chat 모드)
+
+```
+Browser                  Node.js                  Flask            vLLM / MCP / RAG
+  │                         │                       │                    │
+  │──{type:"chat",          │                       │                    │
+  │   sessionId, msg,       │                       │                    │
+  │   config}──────────────▶│                       │                    │
+  │                         │─GET /sessions/{id}───▶│                    │
+  │                         │◀──history─────────────│                    │
+  │                         │─POST /sessions/msg───▶│                    │
+  │                         │                       │                    │
+  │                         │  createAgent()        │                    │
+  │                         │  ├─GET /llm-configs──▶│                    │
+  │                         │  ├─GET /mcp/servers──▶│                    │
+  │                         │  └─tool 등록 완료     │                    │
+  │                         │                       │                    │
+  │                         │  agent.prompt(msg) ───────────────────────▶│
+  │◀─{type:"token",delta}───│◀── text streaming ── ── ── ── ── ── ── ──│
+  │◀─{type:"tool_start"}────│                       │                    │
+  │                         │  tool 실행 (RAG / MCP / 코딩) ────────────▶│
+  │◀─{type:"tool_end"}──────│◀─결과 ─────────────────────────────────────│
+  │                         │  (Agent loop 반복)    │                    │
+  │◀─{type:"agent_end"}─────│                       │                    │
+  │                         │─POST /sessions/msg───▶│  (응답 저장)       │
+```
+
+### 번역 모드 vs 채팅 모드 분기
+
+```
+WebSocket 메시지 수신
+        │
+        ├── type === "translate"
+        │         └── translateDirect()
+        │               └── streamSimple() 직통 (tool 없음, Agent 없음)
+        │
+        └── type === "chat"
+                  └── createAgent()
+                        └── Agent loop (RAG + Coding + MCP tools)
+```
+
+### 멀티유저 격리 (X-User-Id)
+
+```
+[nginx reverse proxy]
+        │  X-User-Id: user123
+        ▼
+[Node.js :3000]
+        │  모든 Flask 호출에 X-User-Id: user123 헤더 포함
+        ▼
+[Flask @before_request]
+        │  g.user_id = request.headers.get("X-User-Id", "default")
+        ▼
+[각 Route]
+        ├── sessions / mcp_servers / skills / user_settings
+        │         WHERE user_id = 'user123'          ← 사용자별 격리
+        │
+        └── jira_servers / gerrit_servers            ← 전체 공유 (user_id 없음)
+```
 
 ---
 
