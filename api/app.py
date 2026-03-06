@@ -4,7 +4,6 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from .db.database import init_db
 from .routes.sessions import sessions_bp
-from .routes.rag import rag_bp
 from .routes.jira import jira_bp
 from .routes.mcp import mcp_bp
 from .routes.settings import settings_bp
@@ -25,7 +24,6 @@ def create_app():
         g.user_id = flask_request.headers.get("X-User-Id", "default")
 
     app.register_blueprint(sessions_bp)
-    app.register_blueprint(rag_bp)
     app.register_blueprint(jira_bp)
     app.register_blueprint(mcp_bp)
     app.register_blueprint(settings_bp)

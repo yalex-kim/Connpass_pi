@@ -12,6 +12,7 @@ import { translateDirect } from "./translate.js";
 
 const PORT = parseInt(process.env.WS_PORT ?? "5001", 10);
 const FLASK_URL = process.env.FLASK_API_URL ?? "http://localhost:5000";
+const RAGAAS_URL = process.env.RAGAAS_URL ?? "http://ragaas.internal";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FRONTEND_PATH = process.env.FRONTEND_PATH ?? join(__dirname, "../frontend");
 
@@ -70,6 +71,33 @@ async function generateTitle(firstMessage: string, model: string, userId: string
 
 // ─── Express + HTTP 서버 ──────────────────────────────────────────────────────
 const app = express();
+app.use(express.json());
+
+// ─── RAG 라우트 (Flask 경유 없이 RAGaaS 직접 호출) ────────────────────────────
+app.post("/api/rag/search", async (req, res) => {
+  try {
+    const resp = await fetch(`${RAGAAS_URL}/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req.body),
+      signal: AbortSignal.timeout(30000),
+    });
+    res.json(await resp.json());
+  } catch (err) {
+    res.json({ results: [], error: String(err) });
+  }
+});
+
+app.get("/api/rag/indexes", async (_req, res) => {
+  try {
+    const resp = await fetch(`${RAGAAS_URL}/indexes`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    res.json(await resp.json());
+  } catch (err) {
+    res.json({ indexes: [], error: String(err) });
+  }
+});
 
 // Flask API 프록시 (정적 파일보다 먼저 등록해야 /api 경로가 우선 처리됨)
 app.use(createProxyMiddleware({

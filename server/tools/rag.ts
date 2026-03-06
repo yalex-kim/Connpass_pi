@@ -1,7 +1,7 @@
 import { Type } from "@mariozechner/pi-ai";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 
-const FLASK_URL = process.env.FLASK_API_URL ?? "http://localhost:5000";
+const RAGAAS_URL = process.env.RAGAAS_URL ?? "http://ragaas.internal";
 
 const ragSearchParams = Type.Object({
   query: Type.String({ description: "검색할 쿼리 문자열" }),
@@ -19,7 +19,7 @@ BT/WiFi 스펙, Confluence 위키, Jira 이슈, Gerrit 코드, Requirement 문�
     parameters: ragSearchParams,
     execute: async (toolCallId, params, signal) => {
       const indexes = params.indexes ?? activeIndexes;
-      const res = await fetch(`${FLASK_URL}/api/rag/search`, {
+      const res = await fetch(`${RAGAAS_URL}/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: params.query, indexes, topK: params.topK ?? 5 }),
