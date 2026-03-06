@@ -7,7 +7,6 @@ import { fileURLToPath } from "url";
 import { resolveModel, models } from "./models.js";
 import { ragTool } from "./tools/rag.js";
 import { loadAllMcpTools } from "./tools/mcp.js";
-import { getCodingTools } from "./tools/coding.js";
 import db from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -82,9 +81,6 @@ export async function createAgent(
   // tool 목록 구성
   const toolList = [];
   if (config.tools.includes("rag")) toolList.push(ragTool(config.indexes));
-
-  // pi-coding-agent 내장 tool (bash, read, write, edit, grep, find, ls)
-  toolList.push(...getCodingTools());
 
   // 로컬 MCP 서버 툴 동적 로드 (Jira, Gerrit 등 모두 포함)
   const mcpTools = await loadAllMcpTools(userId).catch(() => []);

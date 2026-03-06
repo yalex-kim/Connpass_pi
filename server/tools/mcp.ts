@@ -3,8 +3,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Type } from "@mariozechner/pi-ai";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
-
-const FLASK_URL = process.env.FLASK_API_URL ?? "http://localhost:5000";
+import db from "../db.js";
 
 interface McpServerConfig {
   id: string;
@@ -77,11 +76,11 @@ async function buildMcpTools(
 
 export async function loadAllMcpTools(userId = "default"): Promise<AgentTool<ReturnType<typeof Type.Record>>[]> {
   try {
-    const res = await fetch(`${FLASK_URL}/api/mcp/servers`, { headers: { "X-User-Id": userId } });
-    if (!res.ok) return [];
-    const servers = await res.json() as McpServerConfig[];
+    const servers = db.prepare(
+      "SELECT id, name, url, transport, enabled FROM mcp_servers WHERE user_id = ? AND enabled = 1"
+    ).all(userId) as McpServerConfig[];
     const results = await Promise.allSettled(
-      servers.filter(s => s.enabled).map(s => buildMcpTools(s))
+      servers.map(s => buildMcpTools(s))
     );
     return results.flatMap(r => r.status === "fulfilled" ? r.value : []);
   } catch {
