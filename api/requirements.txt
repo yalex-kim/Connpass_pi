@@ -1,9 +1,0 @@
-flask>=3.0
-flask-cors
-requests
-pymupdf
-python-pptx
-python-docx
-numpy
-python-dotenv
-APScheduler>=3.10

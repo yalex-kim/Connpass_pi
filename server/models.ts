@@ -1,7 +1,6 @@
 import { getModel } from "@mariozechner/pi-ai";
 import type { Model } from "@mariozechner/pi-ai";
-
-const FLASK_URL = process.env.FLASK_API_URL ?? "http://localhost:5000";
+import db from "./db.js";
 
 // 모델 기본값 (서버 URL 제외)
 type ModelBase = Omit<Model<"openai-completions">, "baseUrl" | "maxTokens">;
@@ -81,9 +80,8 @@ export async function resolveModel(modelId: string): Promise<ResolvedModelConfig
   const fallbackUrl = process.env.VLLM_BASE_URL ?? "http://vllm.internal/v1";
 
   try {
-    const resp = await fetch(`${FLASK_URL}/api/settings/llm-configs/${encodeURIComponent(modelId)}`);
-    if (resp.ok) {
-      const cfg = await resp.json() as LlmModelConfig;
+    const cfg = db.prepare("SELECT * FROM llm_model_configs WHERE model_id = ?").get(modelId) as LlmModelConfig | undefined;
+    if (cfg) {
       const { defaultMaxTokens, defaultCtx, ...rest } = base;
       return {
         model: {
@@ -98,7 +96,7 @@ export async function resolveModel(modelId: string): Promise<ResolvedModelConfig
       };
     }
   } catch {
-    // Flask 미연결 시 폴백
+    // DB 조회 실패 시 폴백
   }
 
   const { defaultMaxTokens, defaultCtx, ...rest } = base;

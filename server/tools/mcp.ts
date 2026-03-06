@@ -3,8 +3,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Type } from "@mariozechner/pi-ai";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
-
-const FLASK_URL = process.env.FLASK_API_URL ?? "http://localhost:5000";
+import db from "../db.js";
 
 interface McpServerConfig {
   id: string;
@@ -13,6 +12,9 @@ interface McpServerConfig {
   transport?: "streamable-http" | "sse";
   enabled: boolean;
 }
+
+// serverId → 영속적 Client 연결 풀 (프로세스 수명 동안 유지)
+const clientPool = new Map<string, Client>();
 
 function schemaToTypeBox(schema: Record<string, unknown>) {
   return Type.Record(Type.String(), Type.Unknown(), {
@@ -34,13 +36,26 @@ async function connectClient(server: McpServerConfig): Promise<Client> {
   return client;
 }
 
+async function getPooledClient(server: McpServerConfig): Promise<Client> {
+  const existing = clientPool.get(server.id);
+  if (existing) return existing;
+  const client = await connectClient(server);
+  clientPool.set(server.id, client);
+  return client;
+}
+
+// MCP 서버 삭제/수정 시 호출 — routes/mcp.ts에서 import
+export function invalidateMcpClient(serverId: string) {
+  const client = clientPool.get(serverId);
+  if (client) client.close().catch(() => {});
+  clientPool.delete(serverId);
+}
+
 async function buildMcpTools(
   server: McpServerConfig
 ): Promise<AgentTool<ReturnType<typeof Type.Record>>[]> {
-  // tools/list: 연결해서 툴 목록 가져온 뒤 연결 종료
-  const listClient = await connectClient(server);
-  const { tools: mcpTools } = await listClient.listTools();
-  await listClient.close().catch(() => {});
+  const client = await getPooledClient(server);
+  const { tools: mcpTools } = await client.listTools();
 
   return mcpTools.map((mcpTool): AgentTool<ReturnType<typeof Type.Record>> => ({
     name: `mcp_${server.id.replace(/-/g, "_")}_${mcpTool.name}`,
@@ -48,13 +63,12 @@ async function buildMcpTools(
     description: mcpTool.description ?? "",
     parameters: schemaToTypeBox((mcpTool.inputSchema ?? {}) as Record<string, unknown>),
     execute: async (_toolCallId, params, _signal) => {
-      let client: Client | null = null;
+      const callTool = async () => {
+        const c = await getPooledClient(server);
+        return c.callTool({ name: mcpTool.name, arguments: params as Record<string, unknown> });
+      };
       try {
-        client = await connectClient(server);
-        const result = await client.callTool({
-          name: mcpTool.name,
-          arguments: params as Record<string, unknown>,
-        });
+        const result = await callTool();
         const text = (result.content as Array<{ type: string; text?: string }>)
           .filter(c => c.type === "text")
           .map(c => c.text ?? "")
@@ -63,13 +77,25 @@ async function buildMcpTools(
           content: [{ type: "text", text: text || JSON.stringify(result.content) }],
           details: {},
         };
-      } catch (e) {
-        return {
-          content: [{ type: "text", text: `[${server.name}] ${mcpTool.name} 실행 실패: ${String(e)}` }],
-          details: { error: true },
-        };
-      } finally {
-        if (client) await client.close().catch(() => {});
+      } catch {
+        // 연결 오류 시 재연결 후 1회 재시도
+        invalidateMcpClient(server.id);
+        try {
+          const result = await callTool();
+          const text = (result.content as Array<{ type: string; text?: string }>)
+            .filter(c => c.type === "text")
+            .map(c => c.text ?? "")
+            .join("\n");
+          return {
+            content: [{ type: "text", text: text || JSON.stringify(result.content) }],
+            details: {},
+          };
+        } catch (e2) {
+          return {
+            content: [{ type: "text", text: `[${server.name}] ${mcpTool.name} 실행 실패: ${String(e2)}` }],
+            details: { error: true },
+          };
+        }
       }
     },
   }));
@@ -77,11 +103,11 @@ async function buildMcpTools(
 
 export async function loadAllMcpTools(userId = "default"): Promise<AgentTool<ReturnType<typeof Type.Record>>[]> {
   try {
-    const res = await fetch(`${FLASK_URL}/api/mcp/servers`, { headers: { "X-User-Id": userId } });
-    if (!res.ok) return [];
-    const servers = await res.json() as McpServerConfig[];
+    const servers = db.prepare(
+      "SELECT id, name, url, transport, enabled FROM mcp_servers WHERE user_id = ? AND enabled = 1"
+    ).all(userId) as McpServerConfig[];
     const results = await Promise.allSettled(
-      servers.filter(s => s.enabled).map(s => buildMcpTools(s))
+      servers.map(s => buildMcpTools(s))
     );
     return results.flatMap(r => r.status === "fulfilled" ? r.value : []);
   } catch {
