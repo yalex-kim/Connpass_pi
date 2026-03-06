@@ -8,6 +8,7 @@ import { resolveModel, models } from "./models.js";
 import { ragTool } from "./tools/rag.js";
 import { loadAllMcpTools } from "./tools/mcp.js";
 import { getCodingTools } from "./tools/coding.js";
+import db from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKILLS_DIR = process.env.SKILLS_DIR
@@ -16,8 +17,6 @@ const SKILLS_DIR = process.env.SKILLS_DIR
 const USER_SKILLS_BASE = process.env.USER_SKILLS_DIR
   ? path.resolve(process.env.USER_SKILLS_DIR)
   : path.join(__dirname, "../../skills-user");
-
-const FLASK_URL = process.env.FLASK_API_URL ?? "http://localhost:5000";
 
 interface ChatConfig {
   model: string;
@@ -31,26 +30,18 @@ interface ChatConfig {
 
 interface JiraServer { id: string; name: string; url: string; enabled: number; }
 
-async function buildSystemPrompt(_sessionId: string, userId: string): Promise<string> {
+function buildSystemPrompt(_sessionId: string, userId: string): string {
   let agentMd = "";
   let jiraServersSection = "";
 
   try {
-    const [settingsRes, jiraRes] = await Promise.all([
-      fetch(`${FLASK_URL}/api/settings`, { headers: { "X-User-Id": userId } }),
-      fetch(`${FLASK_URL}/api/jira/servers`, { headers: { "X-User-Id": userId } }),
-    ]);
-    if (settingsRes.ok) {
-      const settings = await settingsRes.json() as { agent_md?: string };
-      agentMd = settings.agent_md ?? "";
-    }
-    if (jiraRes.ok) {
-      const servers = await jiraRes.json() as JiraServer[];
-      const enabled = servers.filter(s => s.enabled);
-      if (enabled.length > 0) {
-        jiraServersSection = `\n등록된 Jira 서버 (특정 서버 지정 시 serverId 사용; 미지정 시 백엔드가 자동 라우팅):\n` +
-          enabled.map(s => `  - id: "${s.id}"  name: "${s.name}"`).join("\n");
-      }
+    const settingsRow = db.prepare("SELECT agent_md FROM user_settings WHERE user_id = ?").get(userId) as { agent_md?: string } | undefined;
+    agentMd = settingsRow?.agent_md ?? "";
+
+    const jiraServers = db.prepare("SELECT id, name FROM jira_servers WHERE enabled = 1").all() as JiraServer[];
+    if (jiraServers.length > 0) {
+      jiraServersSection = `\n등록된 Jira 서버 (특정 서버 지정 시 serverId 사용; 미지정 시 백엔드가 자동 라우팅):\n` +
+        jiraServers.map(s => `  - id: "${s.id}"  name: "${s.name}"`).join("\n");
     }
   } catch { /* 기본 프롬프트 사용 */ }
 
@@ -73,7 +64,7 @@ export async function createAgent(
   config: ChatConfig,
   userId: string
 ) {
-  // OpenAI 모델은 정적, 사내 vLLM 모델은 Flask에서 최신 설정을 동적으로 로드
+  // OpenAI 모델은 정적, 사내 vLLM 모델은 DB에서 최신 설정을 동적으로 로드
   const isOpenAI = config.model.startsWith("gpt-");
   let model = models[config.model] ?? models["GLM4.7"];
   let temperature = 0.7;
@@ -86,7 +77,7 @@ export async function createAgent(
     apiKey = resolved.apiKey;
   }
 
-  const systemPrompt = await buildSystemPrompt(sessionId, userId);
+  const systemPrompt = buildSystemPrompt(sessionId, userId);
 
   // tool 목록 구성
   const toolList = [];

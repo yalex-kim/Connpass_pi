@@ -2,17 +2,25 @@ import { config } from "dotenv";
 config({ path: new URL("../.env", import.meta.url).pathname });
 import { createServer } from "http";
 import express from "express";
-import { createProxyMiddleware } from "http-proxy-middleware";
 import { WebSocketServer, WebSocket } from "ws";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import { createAgent } from "./agent.js";
 import { translateDirect } from "./translate.js";
+import db from "./db.js";
+import sessionsRouter from "./routes/sessions.js";
+import settingsRouter from "./routes/settings.js";
+import mcpRouter from "./routes/mcp.js";
+import jiraRouter from "./routes/jira.js";
+import gerritRouter from "./routes/gerrit.js";
+import skillsRouter from "./routes/skills.js";
 
 const PORT = parseInt(process.env.WS_PORT ?? "5001", 10);
-const FLASK_URL = process.env.FLASK_API_URL ?? "http://localhost:5000";
 const RAGAAS_URL = process.env.RAGAAS_URL ?? "http://ragaas.internal";
+const VLLM_BASE_URL = process.env.VLLM_BASE_URL ?? "http://vllm.internal/v1";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
+const OPENAI_MODELS = new Set(["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FRONTEND_PATH = process.env.FRONTEND_PATH ?? join(__dirname, "../frontend");
 
@@ -23,57 +31,62 @@ interface SessionState {
 
 const sessions = new Map<string, SessionState>();
 
-function userHeaders(userId: string): Record<string, string> {
-  return { "Content-Type": "application/json", "X-User-Id": userId };
-}
+// ─── DB 직접 헬퍼 ──────────────────────────────────────────────────────────────
 
-async function saveMessage(sessionId: string, role: string, content: unknown, userId: string) {
+function saveMessage(sessionId: string, role: string, content: unknown) {
   try {
-    await fetch(`${FLASK_URL}/api/sessions/${sessionId}/messages`, {
-      method: "POST",
-      headers: userHeaders(userId),
-      body: JSON.stringify({ role, content: JSON.stringify(content) }),
-    });
+    const msgId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    db.prepare("INSERT INTO messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)").run(
+      msgId, sessionId, role, JSON.stringify(content), now
+    );
+    db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(now, sessionId);
   } catch { /* 저장 실패 무시 */ }
 }
 
-async function loadHistory(sessionId: string, userId: string) {
+function loadHistory(sessionId: string): AgentMessage[] {
   try {
-    const res = await fetch(`${FLASK_URL}/api/sessions/${sessionId}`, {
-      headers: { "X-User-Id": userId },
-    });
-    if (!res.ok) return [];
-    const data = await res.json() as { messages: Array<{ role: string; content: string }> };
-    return data.messages.map(m => {
+    const rows = db.prepare(
+      "SELECT role, content FROM messages WHERE session_id = ? ORDER BY created_at ASC"
+    ).all(sessionId) as Array<{ role: string; content: string }>;
+    return rows.map(m => {
       const parsed = JSON.parse(m.content);
       if (m.role === "assistant" && parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         return { ...parsed };
       }
       return { role: m.role, content: parsed, timestamp: Date.now() };
-    });
+    }) as AgentMessage[];
   } catch { return []; }
 }
 
-async function generateTitle(firstMessage: string, model: string, userId: string) {
-  try {
-    const res = await fetch(`${FLASK_URL}/api/sessions/generate-title`, {
-      method: "POST",
-      headers: userHeaders(userId),
-      body: JSON.stringify({ message: firstMessage, model }),
+async function generateTitle(message: string, model: string): Promise<string> {
+  const messages = [
+    { role: "system", content: "다음 메시지를 보고 5단어 이내 한국어 채팅 제목을 만들어라. 제목만 출력하라." },
+    { role: "user", content: message.slice(0, 500) },
+  ];
+  async function call(baseUrl: string, apiKey: string, modelId: string): Promise<string> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST", headers,
+      body: JSON.stringify({ model: modelId, messages, max_tokens: 30, temperature: 0.3 }),
+      signal: AbortSignal.timeout(10000),
     });
-    if (res.ok) {
-      const data = await res.json() as { title: string };
-      return data.title;
-    }
-  } catch { /* 실패 무시 */ }
-  return firstMessage.slice(0, 30);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json() as { choices: Array<{ message: { content: string } }> };
+    return data.choices[0].message.content.trim();
+  }
+  try {
+    if (OPENAI_MODELS.has(model) && OPENAI_API_KEY) return await call("https://api.openai.com/v1", OPENAI_API_KEY, model);
+    return await call(VLLM_BASE_URL, "", model);
+  } catch { return message.slice(0, 30); }
 }
 
 // ─── Express + HTTP 서버 ──────────────────────────────────────────────────────
 const app = express();
 app.use(express.json());
 
-// ─── RAG 라우트 (Flask 경유 없이 RAGaaS 직접 호출) ────────────────────────────
+// RAG 라우트 — RAGaaS 직접 호출
 app.post("/api/rag/search", async (req, res) => {
   try {
     const resp = await fetch(`${RAGAAS_URL}/search`, {
@@ -90,21 +103,22 @@ app.post("/api/rag/search", async (req, res) => {
 
 app.get("/api/rag/indexes", async (_req, res) => {
   try {
-    const resp = await fetch(`${RAGAAS_URL}/indexes`, {
-      signal: AbortSignal.timeout(10000),
-    });
+    const resp = await fetch(`${RAGAAS_URL}/indexes`, { signal: AbortSignal.timeout(10000) });
     res.json(await resp.json());
   } catch (err) {
     res.json({ indexes: [], error: String(err) });
   }
 });
 
-// Flask API 프록시 (정적 파일보다 먼저 등록해야 /api 경로가 우선 처리됨)
-app.use(createProxyMiddleware({
-  target: FLASK_URL,
-  changeOrigin: true,
-  pathFilter: (pathname: string) => pathname.startsWith("/api") || pathname === "/health",
-}));
+// API 라우트 등록
+app.use("/api", sessionsRouter);
+app.use("/api/settings", settingsRouter);
+app.use("/api/mcp", mcpRouter);
+app.use("/api/jira", jiraRouter);
+app.use("/api/gerrit", gerritRouter);
+app.use("/api", skillsRouter);
+
+app.get("/health", (_req, res) => res.json({ status: "ok", service: "Connpass" }));
 
 // 정적 파일 서빙 (frontend/)
 app.use(express.static(FRONTEND_PATH));
@@ -118,17 +132,28 @@ wss.on("connection", (ws: WebSocket, req) => {
   const userId = (req.headers["x-user-id"] as string) ?? "default";
   console.log(`[WS] 클라이언트 연결 (user: ${userId})`);
 
-  // 접속 시 모델 헬스체크 → 클라이언트에 전송
-  fetch(`${FLASK_URL}/api/settings/model-health`, {
-    headers: { "X-User-Id": userId },
-  })
-    .then(r => r.ok ? r.json() : {})
-    .then((health: Record<string, boolean>) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "model_health", health }));
-      }
-    })
-    .catch(() => {});
+  // 접속 시 모델 헬스체크
+  (async () => {
+    try {
+      const rows = db.prepare(
+        "SELECT model_id, base_url, api_key FROM llm_model_configs WHERE is_builtin = 1 OR user_id = ?"
+      ).all(userId) as Array<{ model_id: string; base_url: string; api_key: string }>;
+      const checks = rows.map(async (row) => {
+        const headers: Record<string, string> = {};
+        let apiKey = row.api_key ?? "";
+        if ((row.base_url ?? "").includes("openai.com") || row.model_id.startsWith("gpt-"))
+          apiKey = OPENAI_API_KEY || apiKey;
+        if (apiKey && apiKey !== "none") headers["Authorization"] = `Bearer ${apiKey}`;
+        try {
+          const resp = await fetch(`${row.base_url}/models`, { headers, signal: AbortSignal.timeout(3000) });
+          return [row.model_id, resp.status < 500] as [string, boolean];
+        } catch { return [row.model_id, false] as [string, boolean]; }
+      });
+      const results = await Promise.all(checks);
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: "model_health", health: Object.fromEntries(results) }));
+    } catch { /* 무시 */ }
+  })();
 
   ws.on("message", async (raw) => {
     let msg: Record<string, unknown>;
@@ -145,11 +170,10 @@ wss.on("connection", (ws: WebSocket, req) => {
     // ─── 세션 목록 ───────────────────────────────────────────────────
     if (type === "sessions.list") {
       try {
-        const res = await fetch(`${FLASK_URL}/api/sessions`, {
-          headers: { "X-User-Id": userId },
-        });
-        const data = await res.json();
-        ws.send(JSON.stringify({ type: "sessions.list", sessions: data }));
+        const rows = db.prepare(
+          "SELECT id, title, persona, model, created_at, updated_at FROM sessions WHERE user_id = ? ORDER BY updated_at DESC LIMIT 100"
+        ).all(userId);
+        ws.send(JSON.stringify({ type: "sessions.list", sessions: rows }));
       } catch (err) {
         ws.send(JSON.stringify({ type: "error", message: String(err), code: "SESSIONS_ERROR" }));
       }
@@ -159,10 +183,7 @@ wss.on("connection", (ws: WebSocket, req) => {
     // ─── 세션 삭제 ───────────────────────────────────────────────────
     if (type === "sessions.delete") {
       try {
-        await fetch(`${FLASK_URL}/api/sessions/${sessionId}`, {
-          method: "DELETE",
-          headers: { "X-User-Id": userId },
-        });
+        db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
         sessions.delete(sessionId);
         ws.send(JSON.stringify({ type: "sessions.deleted", sessionId }));
       } catch (err) {
@@ -190,7 +211,6 @@ wss.on("connection", (ws: WebSocket, req) => {
       };
       const controller = new AbortController();
       sessions.set(sessionId, { agent: null, controller });
-
       await translateDirect(ws, sessionId, text, config, controller.signal);
       sessions.delete(sessionId);
       return;
@@ -218,34 +238,25 @@ wss.on("connection", (ws: WebSocket, req) => {
       const agent = await createAgent(ws, sessionId, config, userId);
       sessions.set(sessionId, { agent, controller });
 
-      const history = await loadHistory(sessionId, userId);
-      if (history.length > 0) {
-        agent.replaceMessages(history as AgentMessage[]);
-      }
+      const history = loadHistory(sessionId);
+      if (history.length > 0) agent.replaceMessages(history);
 
-      await saveMessage(sessionId, "user", message, userId);
+      saveMessage(sessionId, "user", message);
 
       try {
         await agent.prompt(message);
         const msgs = agent.state.messages;
         const lastAssistant = [...msgs].reverse().find((m) => (m as { role?: string }).role === "assistant");
-        if (lastAssistant) await saveMessage(sessionId, "assistant", lastAssistant, userId);
+        if (lastAssistant) saveMessage(sessionId, "assistant", lastAssistant);
         if (history.length === 0) {
-          const title = await generateTitle(message, config.model, userId);
-          await fetch(`${FLASK_URL}/api/sessions/${sessionId}`, {
-            method: "PATCH",
-            headers: userHeaders(userId),
-            body: JSON.stringify({ title }),
-          });
+          const title = await generateTitle(message, config.model);
+          db.prepare("UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?").run(
+            title, new Date().toISOString(), sessionId
+          );
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
-          ws.send(JSON.stringify({
-            type: "error",
-            sessionId,
-            message: String(err),
-            code: "AGENT_ERROR",
-          }));
+          ws.send(JSON.stringify({ type: "error", sessionId, message: String(err), code: "AGENT_ERROR" }));
         }
       } finally {
         sessions.delete(sessionId);
@@ -254,13 +265,8 @@ wss.on("connection", (ws: WebSocket, req) => {
     }
   });
 
-  ws.on("close", () => {
-    console.log("[WS] 클라이언트 연결 해제");
-  });
-
-  ws.on("error", (err) => {
-    console.error("[WS] 에러:", err);
-  });
+  ws.on("close", () => console.log("[WS] 클라이언트 연결 해제"));
+  ws.on("error", (err) => console.error("[WS] 에러:", err));
 });
 
 server.listen(PORT, "0.0.0.0", () => {
