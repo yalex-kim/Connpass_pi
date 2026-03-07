@@ -77,6 +77,11 @@ export async function createAgent(
     apiKey = resolved.apiKey;
   }
 
+  // 사용자 설정 maxTokens로 모델 기본값 오버라이드
+  if (config.maxTokens && config.maxTokens > 0) {
+    model = { ...model, maxTokens: config.maxTokens };
+  }
+
   const systemPrompt = buildSystemPrompt(sessionId, userId);
 
   // tool 목록 구성
@@ -107,8 +112,9 @@ export async function createAgent(
     streamFn: streamFnWithConfig,
   });
 
-  // tool call 순서 추적
+  // tool call 순서 및 maxToolSteps 카운터
   let toolCallOrder = 0;
+  let toolStepCount = 0;
 
   // 이벤트 → WebSocket 브로드캐스트
   agent.subscribe((event) => {
@@ -132,6 +138,7 @@ export async function createAgent(
         break;
 
       case "tool_execution_start": {
+        toolStepCount++;
         const toolLabel = (event as { toolLabel?: string }).toolLabel ?? event.toolName;
         ws.send(JSON.stringify({
           type: "tool_start",
@@ -157,25 +164,36 @@ export async function createAgent(
             toolCallOrder++
           );
         } catch (e) { console.error("[Agent] tool_call insert error:", e); }
+        // maxToolSteps 초과 시 Agent 중단
+        if (config.maxToolSteps && toolStepCount >= config.maxToolSteps) {
+          console.log(`[Agent] maxToolSteps(${config.maxToolSteps}) 도달 — Agent 중단`);
+          agent.abort();
+        }
         break;
       }
 
       case "tool_execution_end": {
         const details = event.result?.details ?? {};
         const isError = event.result?.isError ?? false;
+        // content 텍스트를 UI용 summary로 추가 (details에 summary가 없는 경우)
+        const resultText = (event.result?.content as Array<{ type: string; text?: string }> | undefined)
+          ?.filter(c => c.type === "text")
+          .map(c => c.text ?? "")
+          .join("\n") ?? "";
+        const detailsForUi = ("summary" in details) ? details : { ...details, summary: resultText };
         ws.send(JSON.stringify({
           type: "tool_end",
           sessionId,
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          details,
+          details: detailsForUi,
         }));
         // DB 업데이트
         try {
           db.prepare(
             `UPDATE tool_calls SET result = ?, is_error = ?, ended_at = ? WHERE id = ?`
           ).run(
-            JSON.stringify(details),
+            JSON.stringify(detailsForUi),
             isError ? 1 : 0,
             new Date().toISOString(),
             event.toolCallId
@@ -188,7 +206,6 @@ export async function createAgent(
         ws.send(JSON.stringify({
           type: "agent_end",
           sessionId,
-          totalTokens: 0, // pi-agent-core에서 누적 토큰 제공 시 업데이트
         }));
         break;
     }
