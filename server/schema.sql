@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     persona     TEXT,
     model       TEXT NOT NULL DEFAULT 'GLM4.7',
     created_at  TEXT NOT NULL,
-    updated_at  TEXT NOT NULL
+    updated_at  TEXT NOT NULL,
+    generating  INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS messages (
