@@ -2,6 +2,15 @@ import { getModel } from "@mariozechner/pi-ai";
 import type { Model } from "@mariozechner/pi-ai";
 import db from "./db.js";
 
+// ── 모델 설정 TTL 캐시 (60초) ─────────────────────────────────────────────────
+const _modelCache = new Map<string, { resolved: ResolvedModelConfig; at: number }>();
+const MODEL_CACHE_TTL = 60_000;
+
+export function invalidateModelCache(modelId?: string) {
+  if (modelId) _modelCache.delete(modelId);
+  else _modelCache.clear();
+}
+
 // 모델 기본값 (서버 URL 제외)
 type ModelBase = Omit<Model<"openai-completions">, "baseUrl" | "maxTokens">;
 
@@ -64,6 +73,10 @@ export interface ResolvedModelConfig {
  * 실패 시 환경변수 기반 기본값으로 폴백.
  */
 export async function resolveModel(modelId: string): Promise<ResolvedModelConfig> {
+  // 캐시 히트
+  const hit = _modelCache.get(modelId);
+  if (hit && Date.now() - hit.at < MODEL_CACHE_TTL) return hit.resolved;
+
   // 알려진 모델이 없으면 generic vLLM base를 사용
   const base = modelBases[modelId] ?? {
     id: modelId,
@@ -83,7 +96,7 @@ export async function resolveModel(modelId: string): Promise<ResolvedModelConfig
     const cfg = db.prepare("SELECT * FROM llm_model_configs WHERE model_id = ?").get(modelId) as LlmModelConfig | undefined;
     if (cfg) {
       const { defaultMaxTokens, defaultCtx, ...rest } = base;
-      return {
+      const resolved: ResolvedModelConfig = {
         model: {
           ...rest,
           id: modelId,
@@ -94,13 +107,15 @@ export async function resolveModel(modelId: string): Promise<ResolvedModelConfig
         temperature: cfg.temperature ?? 0.7,
         apiKey: cfg.api_key || "",
       };
+      _modelCache.set(modelId, { resolved, at: Date.now() });
+      return resolved;
     }
   } catch {
     // DB 조회 실패 시 폴백
   }
 
   const { defaultMaxTokens, defaultCtx, ...rest } = base;
-  return {
+  const resolved: ResolvedModelConfig = {
     model: {
       ...rest,
       id: modelId,
@@ -111,6 +126,8 @@ export async function resolveModel(modelId: string): Promise<ResolvedModelConfig
     temperature: 0.7,
     apiKey: "",
   };
+  _modelCache.set(modelId, { resolved, at: Date.now() });
+  return resolved;
 }
 
 // OpenAI 모델 (사외 테스트용 — OPENAI_API_KEY 필요)

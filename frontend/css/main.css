@@ -1767,3 +1767,34 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; h
 }
 .ws-status.connected { background: var(--green); box-shadow: 0 0 5px var(--green); }
 .ws-status.connecting { background: var(--orange); animation: pulse 1s infinite; }
+
+/* ── Generic s-btn ──────────────────────────────────────── */
+.s-btn { font-family:var(--font-mono); font-size:11px; padding:5px 12px; border-radius:4px; border:1px solid var(--border-light); background:transparent; color:var(--text-2); cursor:pointer; transition:all 0.12s; }
+.s-btn:hover:not(:disabled) { background:var(--bg-4); color:var(--text-1); }
+.s-btn:disabled { opacity:0.35; cursor:not-allowed; }
+.s-btn-primary { border-color:var(--accent); color:var(--accent); }
+.s-btn-primary:hover:not(:disabled) { background:var(--accent-glow); }
+.s-btn-danger { border-color:var(--red,#ef4444); color:var(--red,#ef4444); }
+.s-btn-danger:hover:not(:disabled) { background:rgba(239,68,68,0.1); }
+
+/* ── Memory tab ─────────────────────────────────────────── */
+.mem-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+.mem-tab { font-family:var(--font-mono); font-size:11px; padding:4px 10px; border-radius:4px; border:1px solid var(--border-light); background:transparent; color:var(--text-2); cursor:pointer; transition:all 0.12s; }
+.mem-tab:hover { background:var(--bg-4); color:var(--text-1); }
+.mem-tab.active { border-color:var(--accent); color:var(--accent); background:var(--accent-glow); }
+
+/* ── Memory table ───────────────────────────────────────── */
+.mem-table { width:100%; border-collapse:collapse; font-size:12px; }
+.mem-table th { padding:8px 12px; text-align:left; border-bottom:1px solid var(--border-light); color:var(--text-3); font-weight:500; font-family:var(--font-mono); font-size:11px; }
+.mem-table td { padding:8px 12px; border-bottom:1px solid var(--border-dim,rgba(255,255,255,0.04)); color:var(--text-1); vertical-align:top; }
+.mem-table tr:last-child td { border-bottom:none; }
+.mem-table tr:hover td { background:var(--bg-4); }
+.mem-type-badge { font-family:var(--font-mono); font-size:10px; padding:2px 6px; border-radius:3px; display:inline-block; }
+.mem-type-preference { background:rgba(79,156,249,0.15); color:#4f9cf9; }
+.mem-type-issue { background:rgba(62,207,142,0.15); color:#3ecf8e; }
+.mem-type-project { background:rgba(176,108,249,0.15); color:#b06cf9; }
+.mem-type-feature { background:rgba(245,158,62,0.15); color:#f59e3e; }
+.mem-type-fact { background:rgba(110,207,207,0.15); color:#6ecfcf; }
+.mem-importance { font-size:11px; color:var(--text-2); }
+.mem-topic { font-size:11px; color:var(--text-3); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mem-content { max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

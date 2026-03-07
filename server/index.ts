@@ -8,6 +8,8 @@ import { join, dirname } from "path";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import { createAgent } from "./agent.js";
 import { translateDirect } from "./translate.js";
+import { compactSessionIfNeeded } from "./compaction.js";
+import { extractMemoriesFromSession } from "./memory.js";
 import db from "./db.js";
 import sessionsRouter from "./routes/sessions.js";
 import settingsRouter from "./routes/settings.js";
@@ -15,6 +17,7 @@ import mcpRouter from "./routes/mcp.js";
 import jiraRouter from "./routes/jira.js";
 import gerritRouter from "./routes/gerrit.js";
 import skillsRouter from "./routes/skills.js";
+import memoriesRouter from "./routes/memories.js";
 
 const PORT = parseInt(process.env.WS_PORT ?? "5001", 10);
 
@@ -132,6 +135,7 @@ app.use("/api/mcp", mcpRouter);
 app.use("/api/jira", jiraRouter);
 app.use("/api/gerrit", gerritRouter);
 app.use("/api", skillsRouter);
+app.use("/api/memories", memoriesRouter);
 
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "Connpass" }));
 
@@ -251,7 +255,14 @@ wss.on("connection", (ws: WebSocket, req) => {
 
       const controller = new AbortController();
       const assistantMsgId = crypto.randomUUID();
-      const agent = await createAgent(ws, sessionId, config, userId, assistantMsgId);
+
+      // 세션 컨텍스트 = 기존 세션 제목 or 현재 메시지 (장기기억 조회에 사용)
+      const sessionRow = db.prepare("SELECT title FROM sessions WHERE id = ?").get(sessionId) as { title?: string } | undefined;
+      const sessionContext = (sessionRow?.title && sessionRow.title !== "새 대화")
+        ? sessionRow.title
+        : message.slice(0, 200);
+
+      const { agent, model, apiKey, systemPrompt } = await createAgent(ws, sessionId, config, userId, assistantMsgId, sessionContext);
       sessions.set(sessionId, { agent, controller });
 
       const history = loadHistory(sessionId);
@@ -259,6 +270,15 @@ wss.on("connection", (ws: WebSocket, req) => {
 
       saveMessage(sessionId, "user", message);
       db.prepare("UPDATE sessions SET generating = 1 WHERE id = ?").run(sessionId);
+
+      // 프롬프트 디버그 로그 (fire-and-forget)
+      try {
+        const tokenEst = Math.ceil((systemPrompt.length + JSON.stringify(history).length) / 4);
+        db.prepare(
+          `INSERT INTO prompt_logs (id, session_id, user_id, model, system_prompt, message_count, token_estimate, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(crypto.randomUUID(), sessionId, userId, config.model, systemPrompt, history.length + 1, tokenEst, new Date().toISOString());
+      } catch { /* 로그 실패는 무시 */ }
 
       try {
         await agent.prompt(message);
@@ -273,6 +293,16 @@ wss.on("connection", (ws: WebSocket, req) => {
             );
           }).catch(() => { /* 타이틀 생성 실패 무시 */ });
         }
+
+        // 장기기억 추출 (fire-and-forget — 응답 블로킹 없음)
+        extractMemoriesFromSession(sessionId, userId).catch(err =>
+          console.error("[Memory] 추출 실패:", err)
+        );
+
+        // 컴팩션 (fire-and-forget — 다음 턴 준비)
+        compactSessionIfNeeded(sessionId, model.contextWindow, model.id, apiKey, ws).catch(err =>
+          console.error("[Compaction] 실패:", err)
+        );
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           ws.send(JSON.stringify({ type: "error", sessionId, message: String(err), code: "AGENT_ERROR" }));

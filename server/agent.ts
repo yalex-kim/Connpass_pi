@@ -5,8 +5,9 @@ import type { WebSocket } from "ws";
 import path from "path";
 import { fileURLToPath } from "url";
 import { resolveModel, models } from "./models.js";
-import { ragTool } from "./tools/rag.js";
+import { ragTool, listRagIndexesTool } from "./tools/rag.js";
 import { loadAllMcpTools } from "./tools/mcp.js";
+import { retrieveRelevantMemories } from "./memory.js";
 import db from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,7 +30,7 @@ interface ChatConfig {
 
 interface JiraServer { id: string; name: string; url: string; enabled: number; }
 
-function buildSystemPrompt(_sessionId: string, userId: string): string {
+async function buildSystemPrompt(sessionId: string, userId: string, sessionContext: string): Promise<string> {
   let agentMd = "";
   let jiraServersSection = "";
 
@@ -48,13 +49,17 @@ function buildSystemPrompt(_sessionId: string, userId: string): string {
   const { skills } = loadSkills({ skillPaths: [SKILLS_DIR, userSkillsDir], includeDefaults: false });
   const skillsSection = formatSkillsForPrompt(skills);
 
+  // 장기기억 조회 (실패 시 빈 문자열 — 채팅 블로킹 없음)
+  const memorySection = sessionContext.trim()
+    ? await retrieveRelevantMemories(userId, sessionContext).catch(() => "")
+    : "";
+
   return `당신은 BT/WiFi 펌웨어 엔지니어링팀을 위한 AI 어시스턴트 Connpass입니다.
 
 사내 문서 검색(RAG), Jira 이슈 조회/검색, Gerrit 코드리뷰 등을 지원합니다.
 기술 용어는 원문(영어)을 우선 사용하고, 한국어로 답변합니다.
 답변 마지막에는 관련 후속 액션을 1~3개 제안해주세요.
-${jiraServersSection}
-${agentMd ? `\n---\n사용자 커스텀 지시사항:\n${agentMd}` : ""}${skillsSection}`;
+${jiraServersSection}${memorySection}${agentMd ? `\n<user_instructions>\n${agentMd}\n</user_instructions>` : ""}${skillsSection}`;
 }
 
 export async function createAgent(
@@ -62,7 +67,8 @@ export async function createAgent(
   sessionId: string,
   config: ChatConfig,
   userId: string,
-  assistantMessageId: string
+  assistantMessageId: string,
+  sessionContext = ""    // 장기기억 조회용 컨텍스트 (첫 메시지 또는 세션 제목)
 ) {
   // OpenAI 모델은 정적, 사내 vLLM 모델은 DB에서 최신 설정을 동적으로 로드
   const isOpenAI = config.model.startsWith("gpt-");
@@ -82,11 +88,14 @@ export async function createAgent(
     model = { ...model, maxTokens: config.maxTokens };
   }
 
-  const systemPrompt = buildSystemPrompt(sessionId, userId);
+  const systemPrompt = await buildSystemPrompt(sessionId, userId, sessionContext);
 
   // tool 목록 구성
   const toolList = [];
-  if (config.tools.includes("rag")) toolList.push(ragTool(config.indexes));
+  if (config.tools.includes("rag")) {
+    toolList.push(listRagIndexesTool());
+    toolList.push(ragTool(config.indexes));
+  }
 
   // 로컬 MCP 서버 툴 동적 로드 (Jira, Gerrit 등 모두 포함)
   const mcpTools = await loadAllMcpTools(userId).catch(() => []);
@@ -211,5 +220,5 @@ export async function createAgent(
     }
   });
 
-  return agent;
+  return { agent, model, apiKey, systemPrompt };
 }
