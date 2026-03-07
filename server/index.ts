@@ -266,10 +266,12 @@ wss.on("connection", (ws: WebSocket, req) => {
         const lastAssistant = [...msgs].reverse().find((m) => (m as { role?: string }).role === "assistant");
         if (lastAssistant) saveMessage(sessionId, "assistant", lastAssistant, assistantMsgId);
         if (history.length === 0) {
-          const title = await generateTitle(message, config.model);
-          db.prepare("UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?").run(
-            title, new Date().toISOString(), sessionId
-          );
+          // 타이틀 생성은 generating=0을 블록하지 않도록 fire-and-forget
+          generateTitle(message, config.model).then(title => {
+            db.prepare("UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?").run(
+              title, new Date().toISOString(), sessionId
+            );
+          }).catch(() => { /* 타이틀 생성 실패 무시 */ });
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
