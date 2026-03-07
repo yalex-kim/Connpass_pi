@@ -28,12 +28,6 @@
     CONNPASS
   </div>
   <div class="topbar-sep"></div>
-  <div class="topbar-persona">
-    <button class="persona-btn active">BT</button>
-    <button class="persona-btn">WiFi</button>
-    <button class="persona-btn">ALL</button>
-  </div>
-  <div class="topbar-sep"></div>
   <div class="model-selector">
     <span>⚡</span>
     <select id="model-select">
@@ -107,19 +101,6 @@
       </div>
     </div>
 
-    <!-- RAG index bar -->
-    <div class="index-bar" id="index-bar">
-      <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-2);white-space:nowrap">인덱스:</span>
-      <!-- 초기 칩들 (loadIndexes()로 교체될 수 있음) -->
-      <div class="index-chip active">BT-Confluence</div>
-      <div class="index-chip active">BT-Jira</div>
-      <div class="index-chip active">BT-Spec-5.3</div>
-      <div class="index-chip">BT-Spec-5.4</div>
-      <div class="index-chip">BT-Requirement</div>
-      <div class="index-chip">WiFi-Spec</div>
-      <div class="index-chip">Gerrit</div>
-    </div>
-
     <!-- Messages 영역 -->
     <div class="messages" id="messages">
 
@@ -154,8 +135,14 @@
     <!-- INPUT -->
     <div class="input-area">
       <div class="input-tools">
-        <div class="input-tool-chip active">
-          <div class="chip-dot"></div> RAG 검색
+        <!-- RAG 인덱스 드롭다운 -->
+        <div class="rag-index-dropdown" id="rag-index-dropdown">
+          <button class="rag-index-trigger" id="rag-index-trigger">
+            <span>◈</span>
+            <span id="rag-index-label">RAG: 로딩 중...</span>
+            <span class="rag-index-chevron">▾</span>
+          </button>
+          <div class="rag-index-panel" id="rag-index-panel"></div>
         </div>
         <div class="input-tool-chip active">
           <div class="chip-dot"></div> Jira
@@ -174,7 +161,7 @@
         </button>
       </div>
       <div class="input-box">
-        <button class="input-file-btn" title="파일 업로드">📎</button>
+        <button class="input-file-btn" title="파일 업로드 (멀티모달 준비 중)" disabled>📎</button>
         <textarea
           id="main-input"
           placeholder="질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)"

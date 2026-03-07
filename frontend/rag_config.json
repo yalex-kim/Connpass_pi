@@ -1,0 +1,44 @@
+{
+  "indexes": [
+    {
+      "id": "bt-confluence",
+      "name": "BT-Confluence",
+      "description": "BT 팀 Confluence 문서 및 기술 위키"
+    },
+    {
+      "id": "bt-jira",
+      "name": "BT-Jira",
+      "description": "BT 프로젝트 Jira 이슈 및 티켓"
+    },
+    {
+      "id": "bt-spec-5-3",
+      "name": "BT-Spec-5.3",
+      "description": "Bluetooth Core Specification 5.3"
+    },
+    {
+      "id": "bt-spec-5-4",
+      "name": "BT-Spec-5.4",
+      "description": "Bluetooth Core Specification 5.4 (최신)"
+    },
+    {
+      "id": "bt-requirement",
+      "name": "BT-Requirement",
+      "description": "BT 요구사항 정의 문서"
+    },
+    {
+      "id": "wifi-spec",
+      "name": "WiFi-Spec",
+      "description": "WiFi / 802.11 표준 스펙 문서"
+    },
+    {
+      "id": "wifi-confluence",
+      "name": "WiFi-Confluence",
+      "description": "WiFi 팀 Confluence 문서 및 기술 위키"
+    },
+    {
+      "id": "gerrit",
+      "name": "Gerrit",
+      "description": "Gerrit 코드 리뷰 및 변경사항"
+    }
+  ]
+}
