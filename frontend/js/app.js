@@ -39,7 +39,6 @@ const state = {
   currentThinkingBlockId: null,
   lastEventWasToolCall: false,
   sessions: [],
-  persona: 'BT',
 };
 
 // 전역 노출 (settings.js에서 참조)
@@ -350,7 +349,7 @@ async function createNewSession() {
     const res = await fetch(`${API_URL}/api/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ persona: state.persona, model: state.chatConfig.model }),
+      body: JSON.stringify({ model: state.chatConfig.model }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -562,22 +561,23 @@ function toggleTranslateMode() {
 function updateTranslateModeUI() {
   const translateBtn = document.getElementById('translate-btn');
   const translateBar = document.getElementById('translate-bar');
-  const indexBar = document.getElementById('index-bar');
   const inputTools = document.querySelector('.input-tools');
   const textarea = document.getElementById('main-input');
   const badge = document.getElementById('topbar-translate-badge');
 
+  const ragDropdownEl = document.getElementById('rag-index-dropdown');
+
   if (state.isTranslateMode) {
     if (translateBtn) translateBtn.classList.add('active');
     if (translateBar) translateBar.classList.add('active');
-    if (indexBar) indexBar.classList.add('hidden');
+    if (ragDropdownEl) ragDropdownEl.style.display = 'none';
     if (inputTools) inputTools.classList.add('translate-mode');
     if (badge) badge.classList.add('show');
     if (textarea) textarea.placeholder = '번역할 텍스트를 입력하세요... (언어 자동 감지)';
   } else {
     if (translateBtn) translateBtn.classList.remove('active');
     if (translateBar) translateBar.classList.remove('active');
-    if (indexBar) indexBar.classList.remove('hidden');
+    if (ragDropdownEl) ragDropdownEl.style.display = '';
     if (inputTools) inputTools.classList.remove('translate-mode');
     if (badge) badge.classList.remove('show');
     if (textarea) textarea.placeholder = '질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)';
@@ -590,53 +590,125 @@ function setTargetLang(btn, lang) {
   state.translateConfig.targetLang = lang;
 }
 
-// ─── 인덱스 바 ────────────────────────────────────────────────────────────────
-async function loadIndexes() {
-  const indexBar = document.getElementById('index-bar');
-  if (!indexBar) return;
+// ─── RAG 인덱스 드롭다운 ─────────────────────────────────────────────────────
+const RagDropdown = {
+  indexes: [], // { id, name, description, enabled }
+  isOpen: false,
 
-  try {
-    const res = await fetch(`${API_URL}/api/rag/indexes`);
-    if (!res.ok) return;
-    const data = await res.json();
-    renderIndexBar(data.indexes || []);
-  } catch (e) {
-    // 서버 미연결 시 mockup 칩 유지
-  }
-}
-
-function renderIndexBar(indexes) {
-  const indexBar = document.getElementById('index-bar');
-  if (!indexBar || !indexes.length) return;
-
-  // label 스팬 유지
-  const label = indexBar.querySelector('span');
-
-  // 기존 칩 제거
-  indexBar.querySelectorAll('.index-chip').forEach(c => c.remove());
-
-  indexes.forEach(idx => {
-    const chip = document.createElement('div');
-    chip.className = 'index-chip' + (idx.active ? ' active' : '');
-    chip.textContent = idx.name || idx.id;
-    chip.dataset.indexId = idx.id;
-    chip.addEventListener('click', () => toggleIndex(idx.id, chip));
-    indexBar.appendChild(chip);
-  });
-}
-
-function toggleIndex(indexId, chipEl) {
-  chipEl.classList.toggle('active');
-  const isActive = chipEl.classList.contains('active');
-
-  if (isActive) {
-    if (!state.chatConfig.indexes.includes(indexId)) {
-      state.chatConfig.indexes.push(indexId);
+  async init() {
+    try {
+      const res = await fetch('/rag_config.json');
+      if (res.ok) {
+        const data = await res.json();
+        this.indexes = (data.indexes || []).map(idx => ({ ...idx, enabled: true }));
+      }
+    } catch (e) {
+      // rag_config.json 없으면 빈 상태 유지
     }
-  } else {
-    state.chatConfig.indexes = state.chatConfig.indexes.filter(id => id !== indexId);
-  }
-}
+    this._render();
+    this._setupEvents();
+    this._updateLabel();
+    this._syncState();
+  },
+
+  _render() {
+    const panel = document.getElementById('rag-index-panel');
+    if (!panel) return;
+
+    const enabledCount = this.indexes.filter(i => i.enabled).length;
+    const allEnabled = this.indexes.length > 0 && enabledCount === this.indexes.length;
+
+    panel.innerHTML = `
+      <div class="rag-index-item rag-all-item">
+        <input type="checkbox" id="rag-all-chk" ${allEnabled ? 'checked' : this.indexes.length === 0 ? 'checked' : ''}>
+        <div class="rag-index-item-info">
+          <div class="rag-index-item-name">ALL</div>
+          <div class="rag-index-item-desc">모든 인덱스 검색</div>
+        </div>
+      </div>
+      ${this.indexes.map(idx => `
+        <div class="rag-index-item" data-id="${idx.id}">
+          <input type="checkbox" ${idx.enabled ? 'checked' : ''}>
+          <div class="rag-index-item-info">
+            <div class="rag-index-item-name">${_escHtml(idx.name)}</div>
+            ${idx.description ? `<div class="rag-index-item-desc">${_escHtml(idx.description)}</div>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    `;
+
+    // 이벤트 재등록 (render 후)
+    const allChk = panel.querySelector('#rag-all-chk');
+    if (allChk) {
+      allChk.addEventListener('change', () => {
+        this.indexes.forEach(i => i.enabled = allChk.checked);
+        this._render();
+        this._updateLabel();
+        this._syncState();
+      });
+    }
+
+    this.indexes.forEach((idx, i) => {
+      const item = panel.querySelector(`.rag-index-item[data-id="${idx.id}"]`);
+      if (!item) return;
+      const chk = item.querySelector('input[type=checkbox]');
+      if (!chk) return;
+      chk.addEventListener('change', () => {
+        this.indexes[i].enabled = chk.checked;
+        this._render();
+        this._updateLabel();
+        this._syncState();
+      });
+    });
+  },
+
+  _setupEvents() {
+    const trigger = document.getElementById('rag-index-trigger');
+    const dropdown = document.getElementById('rag-index-dropdown');
+    if (trigger) {
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggle();
+      });
+    }
+    document.addEventListener('click', (e) => {
+      if (dropdown && !dropdown.contains(e.target)) {
+        this.close();
+      }
+    });
+  },
+
+  toggle() { this.isOpen ? this.close() : this.open(); },
+
+  open() {
+    this.isOpen = true;
+    const dropdown = document.getElementById('rag-index-dropdown');
+    if (dropdown) dropdown.classList.add('open');
+  },
+
+  close() {
+    this.isOpen = false;
+    const dropdown = document.getElementById('rag-index-dropdown');
+    if (dropdown) dropdown.classList.remove('open');
+  },
+
+  _updateLabel() {
+    const label = document.getElementById('rag-index-label');
+    if (!label) return;
+    const enabled = this.indexes.filter(i => i.enabled);
+    if (this.indexes.length === 0 || enabled.length === this.indexes.length) {
+      label.textContent = 'RAG: ALL';
+    } else if (enabled.length === 0) {
+      label.textContent = 'RAG: 없음';
+    } else {
+      label.textContent = `RAG: ${enabled.length}/${this.indexes.length}`;
+    }
+  },
+
+  _syncState() {
+    state.chatConfig.indexes = this.indexes.filter(i => i.enabled).map(i => i.id);
+  },
+};
 
 // ─── 새 채팅 ─────────────────────────────────────────────────────────────────
 function startNewChat() {
@@ -651,13 +723,6 @@ function startNewChat() {
 
   document.querySelectorAll('.session-item').forEach(i => i.classList.remove('active'));
   setGenerating(false);
-}
-
-// ─── 페르소나 ────────────────────────────────────────────────────────────────
-function setPersona(btn, persona) {
-  document.querySelectorAll('.persona-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  state.persona = persona;
 }
 
 // ─── Quick prompts ────────────────────────────────────────────────────────────
@@ -887,14 +952,6 @@ function setupEventListeners() {
 
   // 설정 토글 버튼 — SettingsPanel.init()에서 이미 등록됨, 중복 등록 금지
 
-  // 페르소나 버튼
-  document.querySelectorAll('.persona-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const persona = btn.textContent.trim();
-      setPersona(btn, persona);
-    });
-  });
-
   // 언어 토글
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -916,15 +973,6 @@ function setupEventListeners() {
       });
     });
   }
-
-  // 인덱스 칩 (mockup에 있는 기본 칩들)
-  document.querySelectorAll('#index-bar .index-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      chip.classList.toggle('active');
-      // 인덱스 id가 있으면 상태 업데이트
-      if (chip.dataset.indexId) toggleIndex(chip.dataset.indexId, chip);
-    });
-  });
 
   // tool 칩 토글
   document.querySelectorAll('.input-tool-chip:not(.translate-toggle-btn)').forEach(chip => {
@@ -1198,8 +1246,8 @@ async function init() {
     console.error('[SettingsPanel.init] 초기화 오류:', e);
   }
 
-  // 4. 인덱스 로드 (서버 연결 시)
-  loadIndexes();
+  // 4. RAG 인덱스 드롭다운 초기화
+  RagDropdown.init();
 
   // 5. 이벤트 리스너 설정
   setupEventListeners();

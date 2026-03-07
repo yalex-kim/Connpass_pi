@@ -360,7 +360,7 @@ const SettingsPanel = {
   // ── 모델 설정 로드 (기본 모델 선택 + 공통 파라미터) ──────
   async loadModelSettings() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/settings/model`);
       if (!res.ok) return;
       const data = await res.json();
@@ -399,7 +399,7 @@ const SettingsPanel = {
   // ── 공통 파라미터 저장 (maxToolSteps, thinkingMode) ──────
   async saveModelSettings() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const selectedCard = document.querySelector('.model-card.sel');
       const model = selectedCard?.querySelector('.model-name')?.textContent || 'GLM4.7';
       const maxToolSteps = parseInt(document.getElementById('range-maxsteps')?.value || '10');
@@ -426,7 +426,7 @@ const SettingsPanel = {
   // ── LLM 모델별 설정 로드 ────────────────────────────────
   async loadLlmConfigs() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/settings/llm-configs`);
       if (!res.ok) return;
       const configs = await res.json();
@@ -438,7 +438,7 @@ const SettingsPanel = {
 
   // ── LLM 모델별 설정 저장 ────────────────────────────────
   async saveLlmConfig(modelId) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const row = document.querySelector(`.llm-cfg-row[data-model="${modelId}"]`);
     if (!row) return;
 
@@ -591,7 +591,7 @@ const SettingsPanel = {
 
   // ── vLLM 서버에서 모델 목록 조회 ────────────────────────
   async _fetchVllmModels() {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const baseUrl = document.getElementById('new-llm-base-url')?.value?.trim() || '';
     const apiKey = document.getElementById('new-llm-api-key')?.value?.trim() || '';
     const statusEl = document.getElementById('fetch-vllm-status');
@@ -640,7 +640,7 @@ const SettingsPanel = {
 
   // ── LLM 모델 등록 ───────────────────────────────────────
   async _registerLlmModel() {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const modelId = document.getElementById('new-llm-model-id')?.value?.trim();
     const displayName = document.getElementById('new-llm-display-name')?.value?.trim() || modelId;
     const baseUrl = document.getElementById('new-llm-base-url')?.value?.trim() || 'http://vllm.internal/v1';
@@ -686,7 +686,7 @@ const SettingsPanel = {
   // ── LLM 모델 삭제 ───────────────────────────────────────
   async deleteLlmModel(modelId) {
     if (!confirm(`"${modelId}" 모델을 삭제할까요?`)) return;
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     try {
       const res = await fetch(`${API_URL}/api/settings/llm-configs/${encodeURIComponent(modelId)}`, { method: 'DELETE' });
       const data = await res.json();
@@ -712,7 +712,7 @@ const SettingsPanel = {
   // ── MCP 서버 목록 로드 ──────────────────────────────────
   async loadMcpServers() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/mcp/servers`);
       if (!res.ok) return;
       const data = await res.json();
@@ -724,7 +724,7 @@ const SettingsPanel = {
 
   // ── MCP 서버 추가 ────────────────────────────────────────
   async addMcpServer(name, url, transport = 'streamable-http') {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/mcp/servers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -736,14 +736,14 @@ const SettingsPanel = {
 
   // ── MCP 서버 삭제 ────────────────────────────────────────
   async deleteMcpServer(id) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/mcp/servers/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete MCP server');
   },
 
   // ── MCP 서버 테스트 ──────────────────────────────────────
   async testMcpServer(id) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/mcp/servers/${id}/test`, { method: 'POST' });
     return await res.json();
   },
@@ -751,7 +751,7 @@ const SettingsPanel = {
   // ── Jira 서버 목록 로드 ─────────────────────────────────
   async loadJiraServers() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/jira/servers`);
       if (!res.ok) return;
       const data = await res.json();
@@ -763,7 +763,7 @@ const SettingsPanel = {
 
   // ── Jira 서버 추가 ───────────────────────────────────────
   async addJiraServer(name, url, email, token, prefixes = '') {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/jira/servers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -775,14 +775,14 @@ const SettingsPanel = {
 
   // ── Jira 서버 삭제 ───────────────────────────────────────
   async deleteJiraServer(id) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/jira/servers/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete Jira server');
   },
 
   // ── Jira 서버 테스트 ─────────────────────────────────────
   async testJiraServer(id) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/jira/servers/${id}/test`, { method: 'POST' });
     return await res.json();
   },
@@ -790,7 +790,7 @@ const SettingsPanel = {
   // ── Skill 목록 로드 ──────────────────────────────────────
   async loadSkills() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/skills`);
       if (!res.ok) return;
       const data = await res.json();
@@ -852,7 +852,7 @@ const SettingsPanel = {
     if (uploadBtn) uploadBtn.disabled = true;
 
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const formData = new FormData();
       formData.append('file', file);
       const res = await fetch(`${API_URL}/api/skills/upload`, { method: 'POST', body: formData });
@@ -873,7 +873,7 @@ const SettingsPanel = {
   async _deleteSkill(dirName, name) {
     if (!confirm(`"${name}" Skill을 삭제하시겠습니까?`)) return;
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/skills/${encodeURIComponent(dirName)}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json();
@@ -926,7 +926,7 @@ const SettingsPanel = {
   // ── Agent.md 로드 ────────────────────────────────────────
   async loadAgentMd() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/settings/agentmd`);
       if (!res.ok) return;
       const data = await res.json();
@@ -940,7 +940,7 @@ const SettingsPanel = {
   // ── Agent.md 저장 ────────────────────────────────────────
   async saveAgentMd() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const ta = document.getElementById('agentmd-input');
       const content = ta?.value || '';
       await fetch(`${API_URL}/api/settings/agentmd`, {
@@ -1138,7 +1138,7 @@ const SettingsPanel = {
   // ── Gerrit 서버 목록 로드 ────────────────────────────────
   async loadGerritServers() {
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/gerrit/servers`);
       if (!res.ok) return;
       const data = await res.json();
@@ -1150,7 +1150,7 @@ const SettingsPanel = {
 
   // ── Gerrit 서버 추가 ─────────────────────────────────────
   async addGerritServer(name, url, username, token, auth_type) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/gerrit/servers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1165,7 +1165,7 @@ const SettingsPanel = {
 
   // ── Gerrit 서버 삭제 ─────────────────────────────────────
   async deleteGerritServer(id) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/gerrit/servers/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
@@ -1173,7 +1173,7 @@ const SettingsPanel = {
 
   // ── Gerrit 서버 연결 테스트 ──────────────────────────────
   async testGerritServer(id) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const res = await fetch(`${API_URL}/api/gerrit/servers/${id}/test`, { method: 'POST' });
     return res.json();
   },
@@ -1267,7 +1267,7 @@ const SettingsPanel = {
     }
 
     try {
-      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+      const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/health`);
       if (res.ok) {
         if (el) {
@@ -1411,7 +1411,7 @@ const SettingsPanel = {
   },
 
   async _loadMemoryStats() {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     try {
       const res = await fetch(`${API_URL}/api/memories/stats`, { headers: this._authHeaders() });
       if (!res.ok) return;
@@ -1425,7 +1425,7 @@ const SettingsPanel = {
   },
 
   async loadMemories() {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const tbody = document.getElementById('mem-tbody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">로딩 중...</td></tr>';
@@ -1475,7 +1475,7 @@ const SettingsPanel = {
 
   async _deleteMemory(id) {
     if (!confirm('이 기억을 삭제하시겠습니까?')) return;
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     try {
       const res = await fetch(`${API_URL}/api/memories/${id}`, {
         method: 'DELETE',
@@ -1490,7 +1490,7 @@ const SettingsPanel = {
   },
 
   async _editMemory(id) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     try {
       const res = await fetch(`${API_URL}/api/memories/${id}`, { headers: this._authHeaders() });
       if (!res.ok) throw new Error(res.status);
@@ -1514,7 +1514,7 @@ const SettingsPanel = {
   },
 
   async _clearMemories(type) {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const url = type ? `${API_URL}/api/memories?type=${type}` : `${API_URL}/api/memories`;
     try {
       const res = await fetch(url, { method: 'DELETE', headers: this._authHeaders() });
@@ -1528,7 +1528,7 @@ const SettingsPanel = {
   },
 
   async _addMemory() {
-    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     const type = document.getElementById('mem-add-type')?.value || 'preference';
     const content = document.getElementById('mem-add-content')?.value?.trim();
     const topicKey = document.getElementById('mem-add-topic')?.value?.trim() || null;
