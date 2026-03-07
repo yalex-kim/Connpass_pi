@@ -1,5 +1,6 @@
 import { Type } from "@mariozechner/pi-ai";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
+import db from "../db.js";
 
 const RAGAAS_URL = process.env.RAGAAS_URL ?? "http://ragaas.internal";
 
@@ -22,6 +23,40 @@ const ragSearchParams = Type.Object({
   indexes: Type.Optional(Type.Array(Type.String(), { description: "검색할 RAG 인덱스 ID 목록. 미지정 시 활성 인덱스 전체" })),
   topK: Type.Optional(Type.Number({ description: "반환할 최대 결과 수, 기본값 5" })),
 });
+
+const listIndexesParams = Type.Object({});
+
+export function listRagIndexesTool(): AgentTool<typeof listIndexesParams> {
+  return {
+    name: "list_rag_indexes",
+    label: "RAG 인덱스 목록",
+    description: `사용 가능한 RAG 인덱스 목록과 각 설명을 반환합니다.
+rag_search 호출 전에 먼저 이 tool로 어떤 인덱스가 있는지 확인하고,
+질문과 관련 있는 2~3개 인덱스 ID만 선택해서 검색하세요.`,
+    parameters: listIndexesParams,
+    execute: async () => {
+      try {
+        const rows = db.prepare(
+          "SELECT id, name, description, domain, type, version FROM rag_index_metadata WHERE enabled = 1 ORDER BY type, id"
+        ).all() as Array<{ id: string; name: string; description: string; domain: string; type: string; version?: string }>;
+        const text = rows.map(r => {
+          const domain = (() => { try { return (JSON.parse(r.domain) as string[]).join("/"); } catch { return r.domain; } })();
+          const ver = r.version ? ` v${r.version}` : "";
+          return `- id: "${r.id}" [${domain}${ver}] ${r.name}: ${r.description}`;
+        }).join("\n");
+        return {
+          content: [{ type: "text", text: text || "등록된 인덱스가 없습니다." }],
+          details: { count: rows.length },
+        };
+      } catch (e) {
+        return {
+          content: [{ type: "text", text: `인덱스 목록 조회 실패: ${String(e)}` }],
+          details: { error: true },
+        };
+      }
+    },
+  };
+}
 
 export function ragTool(activeIndexes: string[]): AgentTool<typeof ragSearchParams> {
   return {

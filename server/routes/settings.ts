@@ -1,5 +1,6 @@
 import { Router } from "express";
 import db from "../db.js";
+import { invalidateModelCache } from "../models.js";
 
 const router = Router();
 
@@ -202,6 +203,7 @@ router.put("/llm-configs/:model_id(*)", (req, res) => {
       "INSERT INTO llm_model_configs (model_id, display_name, base_url, api_key, temperature, max_tokens, context_window, is_builtin, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?) ON CONFLICT(model_id) DO UPDATE SET display_name=excluded.display_name, base_url=excluded.base_url, api_key=excluded.api_key, temperature=excluded.temperature, max_tokens=excluded.max_tokens, context_window=excluded.context_window WHERE is_builtin = 0 AND user_id = excluded.user_id"
     ).run(model_id, body.display_name ?? model_id, body.base_url ?? "http://vllm.internal/v1",
       body.api_key ?? "", body.temperature ?? 0.7, body.max_tokens ?? 4096, body.context_window ?? 128000, uid(req));
+    invalidateModelCache(model_id);
     res.json(db.prepare("SELECT * FROM llm_model_configs WHERE model_id = ?").get(model_id));
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -218,6 +220,7 @@ router.delete("/llm-configs/:model_id(*)", (req, res) => {
     if (!row) return res.status(404).json({ error: "Model not found" });
     if (row.is_builtin) return res.status(403).json({ error: "Built-in models cannot be deleted" });
     db.prepare("DELETE FROM llm_model_configs WHERE model_id = ? AND user_id = ? AND is_builtin = 0").run(model_id, uid(req));
+    invalidateModelCache(model_id);
     res.json({ deleted: model_id });
   } catch (err) {
     res.status(500).json({ error: String(err) });

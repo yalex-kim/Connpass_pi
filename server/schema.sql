@@ -125,3 +125,73 @@ CREATE INDEX IF NOT EXISTS idx_usage_logs_user_id ON usage_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_llm_model_configs_user_id ON llm_model_configs(user_id);
 CREATE INDEX IF NOT EXISTS idx_jira_servers_enabled ON jira_servers(enabled);
 CREATE INDEX IF NOT EXISTS idx_gerrit_servers_enabled ON gerrit_servers(enabled);
+
+-- ── 프롬프트 디버그 로그 ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS prompt_logs (
+    id             TEXT PRIMARY KEY,
+    session_id     TEXT NOT NULL,
+    user_id        TEXT NOT NULL,
+    model          TEXT NOT NULL,
+    system_prompt  TEXT NOT NULL,
+    message_count  INTEGER NOT NULL DEFAULT 0,
+    token_estimate INTEGER NOT NULL DEFAULT 0,
+    created_at     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_prompt_logs_session  ON prompt_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_logs_created  ON prompt_logs(created_at DESC);
+
+-- ── RAG 인덱스 메타데이터 ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS rag_index_metadata (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL,
+    domain      TEXT NOT NULL DEFAULT '[]',   -- JSON: ["BT","WiFi","공통"]
+    type        TEXT NOT NULL DEFAULT 'spec', -- spec|requirement|confluence|jira|gerrit
+    version     TEXT,
+    enabled     INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+INSERT OR IGNORE INTO rag_index_metadata (id, name, description, domain, type) VALUES
+  ('bt-spec',    'BT Spec',     'Bluetooth Core Spec — HCI 커맨드, 에러코드, 프로토콜 정의',    '["BT"]',             'spec'),
+  ('wifi-spec',  'WiFi Spec',   '802.11 스펙 — MAC, PHY, 보안 프로토콜',                        '["WiFi"]',           'spec'),
+  ('jira-bt',    'Jira BT',     'BT 프로젝트 Jira 이슈 — 버그, 기능, RCA 데이터',               '["BT"]',             'jira'),
+  ('jira-wifi',  'Jira WiFi',   'WiFi 프로젝트 Jira 이슈 — 버그, 기능',                         '["WiFi"]',           'jira'),
+  ('gerrit',     'Gerrit',      '코드 변경사항 — 커밋 메시지, diff, 리뷰 코멘트',                '["BT","WiFi","공통"]','gerrit'),
+  ('confluence', 'Confluence',  '팀 위키 — 절차, 온보딩, 설계 문서, 회의록',                    '["BT","WiFi","공통"]','confluence');
+
+-- ── 사용자 장기기억 ───────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_memories (
+    id              TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL,
+    memory_type     TEXT NOT NULL DEFAULT 'preference',
+                    -- 'preference' | 'issue' | 'project' | 'feature' | 'fact'
+    topic_key       TEXT,
+                    -- Type2 전용 식별자 (예: "BT-1234", "A2DP sink 구현")
+                    -- NULL = Type1(preference); NOT NULL = UNIQUE per user
+    content         TEXT NOT NULL,
+    prev_content    TEXT,               -- 이전 내용 1단계 백업
+    importance      INTEGER NOT NULL DEFAULT 3,  -- 1(낮음)~5(높음)
+    embedding       BLOB,               -- Float32Array 직렬화, NULL 허용
+    source_session  TEXT,               -- 가장 최근 추출 session_id
+    access_count    INTEGER NOT NULL DEFAULT 0,
+    last_accessed   TEXT,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_memories_topic
+    ON user_memories(user_id, topic_key) WHERE topic_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_user_memories_user   ON user_memories(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_memories_type   ON user_memories(user_id, memory_type);
+CREATE INDEX IF NOT EXISTS idx_user_memories_imp    ON user_memories(user_id, importance DESC);
+
+-- ── 세션별 기억 추출 추적 ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS memory_extractions (
+    session_id         TEXT PRIMARY KEY,
+    user_id            TEXT NOT NULL,
+    status             TEXT NOT NULL DEFAULT 'pending', -- pending|done|failed
+    memories_upserted  INTEGER NOT NULL DEFAULT 0,
+    attempted_at       TEXT,
+    completed_at       TEXT
+);

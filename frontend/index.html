@@ -214,6 +214,7 @@
         <div class="nav-item" data-section="skill"><span class="nav-icon">⚙️</span><span class="nav-label">Skill</span><span class="nav-badge">4</span></div>
         <div class="nav-group-label">개인화</div>
         <div class="nav-item" data-section="agentmd"><span class="nav-icon">📝</span><span class="nav-label">Agent.md</span></div>
+        <div class="nav-item" data-section="memories"><span class="nav-icon">🧠</span><span class="nav-label">장기기억</span></div>
         <div class="nav-group-label">번역</div>
         <div class="nav-item" data-section="translate"><span class="nav-icon">⟵⟶</span><span class="nav-label">번역 설정</span></div>
         <div class="nav-group-label">화면</div>
@@ -714,6 +715,99 @@
             <div class="s-form-row"><div class="s-form-label">코드 하이라이트</div><div class="s-form-ctrl"><div class="s-tog-wrap"><button class="s-tog on"></button><span class="s-tog-label">활성화</span></div></div></div>
           </div>
         </div>
+
+        <!-- 장기기억 -->
+        <div class="sec" id="sec-memories">
+          <div class="sec-header">
+            <div class="sec-title">🧠 <span>장기기억</span> 관리</div>
+            <div class="sec-desc">AI가 세션간에 기억하는 사용자 정보를 확인하고 관리합니다.</div>
+          </div>
+
+          <!-- 통계 -->
+          <div class="s-card" id="memory-stats-card">
+            <div class="s-card-title">기억 통계</div>
+            <div id="memory-stats" style="display:flex;gap:24px;font-size:13px;color:var(--fg2)">
+              <span>전체: <strong id="mem-total">-</strong></span>
+              <span>선호/취향: <strong id="mem-pref-count">-</strong></span>
+              <span>업무 이력: <strong id="mem-work-count">-</strong></span>
+            </div>
+          </div>
+
+          <!-- 필터 탭 + 전체 삭제 -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin:12px 0 8px">
+            <div class="mem-tabs" id="mem-tabs">
+              <button class="mem-tab active" data-type="">전체</button>
+              <button class="mem-tab" data-type="preference">선호/취향</button>
+              <button class="mem-tab" data-type="issue">이슈</button>
+              <button class="mem-tab" data-type="project">프로젝트</button>
+              <button class="mem-tab" data-type="feature">기능</button>
+              <button class="mem-tab" data-type="fact">사실</button>
+            </div>
+            <button class="s-btn s-btn-danger" id="mem-clear-btn" style="font-size:12px;padding:4px 10px">전체 삭제</button>
+          </div>
+
+          <!-- 기억 목록 -->
+          <div class="s-card" style="padding:0;overflow:hidden">
+            <table class="mem-table" id="mem-table">
+              <thead>
+                <tr>
+                  <th style="width:40%">내용</th>
+                  <th style="width:12%">유형</th>
+                  <th style="width:18%">topic</th>
+                  <th style="width:8%">중요도</th>
+                  <th style="width:14%">날짜</th>
+                  <th style="width:8%"></th>
+                </tr>
+              </thead>
+              <tbody id="mem-tbody">
+                <tr><td colspan="6" style="text-align:center;color:var(--fg3);padding:24px">로딩 중...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 페이지네이션 -->
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--fg2)" id="mem-pagination">
+            <button class="s-btn" id="mem-prev-btn" disabled>◀</button>
+            <span id="mem-page-info">1 / 1</span>
+            <button class="s-btn" id="mem-next-btn" disabled>▶</button>
+          </div>
+
+          <!-- 직접 추가 -->
+          <div class="s-card" style="margin-top:16px">
+            <div class="s-card-title">기억 직접 추가</div>
+            <div class="s-form-row">
+              <div class="s-form-label">유형</div>
+              <div class="s-form-ctrl">
+                <select class="s-input" id="mem-add-type" style="width:160px">
+                  <option value="preference">선호/취향</option>
+                  <option value="issue">이슈</option>
+                  <option value="project">프로젝트</option>
+                  <option value="feature">기능</option>
+                  <option value="fact">사실</option>
+                </select>
+              </div>
+            </div>
+            <div class="s-form-row" id="mem-add-topic-row">
+              <div class="s-form-label">topic_key <small>업무이력 식별자</small></div>
+              <div class="s-form-ctrl"><input class="s-input" id="mem-add-topic" placeholder="예: BT-1234, WiFi-Spec-6.1" style="width:280px"></div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">내용</div>
+              <div class="s-form-ctrl"><textarea class="s-input" id="mem-add-content" rows="3" style="width:100%;resize:vertical" placeholder="기억할 내용을 입력하세요"></textarea></div>
+            </div>
+            <div class="s-form-row">
+              <div class="s-form-label">중요도 <small>1~5</small></div>
+              <div class="s-form-ctrl">
+                <input type="range" id="mem-add-importance" min="1" max="5" value="3" style="width:120px">
+                <span id="mem-add-importance-val" style="margin-left:8px;font-size:13px">3</span>
+              </div>
+            </div>
+            <div style="margin-top:8px">
+              <button class="s-btn s-btn-primary" id="mem-add-btn">추가</button>
+            </div>
+          </div>
+
+        </div><!-- /sec-memories -->
 
       </div><!-- /settings-content -->
     </div><!-- /settings-layout -->

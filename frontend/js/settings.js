@@ -7,7 +7,10 @@
 
 const SettingsPanel = {
   isOpen: false,
-  currentSection: 'llm', // 'llm' | 'mcp' | 'skill' | 'agentmd' | 'translate' | 'ui'
+  currentSection: 'llm', // 'llm' | 'mcp' | 'skill' | 'agentmd' | 'translate' | 'ui' | 'memories'
+  _memPage: 0,
+  _memType: '',
+  _memPageSize: 20,
 
   // ── 초기화 ──────────────────────────────────────────────
   init() {
@@ -351,6 +354,7 @@ const SettingsPanel = {
     if (section === 'gerrit') this.loadGerritServers();
     if (section === 'mcp') this.loadMcpServers();
     if (section === 'skill') this.loadSkills();
+    if (section === 'memories') this._initMemoriesSection();
   },
 
   // ── 모델 설정 로드 (기본 모델 선택 + 공통 파라미터) ──────
@@ -1353,6 +1357,208 @@ const SettingsPanel = {
     const g = parseInt(result[2], 16);
     const b = parseInt(result[3], 16);
     return `rgba(${r},${g},${b},${alpha})`;
+  },
+
+  // ── 장기기억 관리 ─────────────────────────────────────────
+  _initMemoriesSection() {
+    // 탭 이벤트 (한 번만 바인딩)
+    if (!this._memInited) {
+      this._memInited = true;
+
+      document.getElementById('mem-tabs')?.addEventListener('click', e => {
+        const tab = e.target.closest('.mem-tab');
+        if (!tab) return;
+        document.querySelectorAll('.mem-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        this._memType = tab.dataset.type;
+        this._memPage = 0;
+        this.loadMemories();
+      });
+
+      document.getElementById('mem-prev-btn')?.addEventListener('click', () => {
+        if (this._memPage > 0) { this._memPage--; this.loadMemories(); }
+      });
+      document.getElementById('mem-next-btn')?.addEventListener('click', () => {
+        this._memPage++;
+        this.loadMemories();
+      });
+
+      document.getElementById('mem-clear-btn')?.addEventListener('click', () => {
+        const label = this._memType ? `"${this._memType}" 유형의 ` : '모든 ';
+        if (!confirm(`${label}장기기억을 삭제하시겠습니까?`)) return;
+        this._clearMemories(this._memType || undefined);
+      });
+
+      document.getElementById('mem-add-type')?.addEventListener('change', e => {
+        const topicRow = document.getElementById('mem-add-topic-row');
+        if (topicRow) topicRow.style.display = e.target.value === 'preference' ? 'none' : '';
+      });
+      // preference가 기본값 → topic row 숨김
+      const topicRow = document.getElementById('mem-add-topic-row');
+      if (topicRow) topicRow.style.display = 'none';
+
+      document.getElementById('mem-add-importance')?.addEventListener('input', e => {
+        const val = document.getElementById('mem-add-importance-val');
+        if (val) val.textContent = e.target.value;
+      });
+
+      document.getElementById('mem-add-btn')?.addEventListener('click', () => this._addMemory());
+    }
+
+    this._memPage = 0;
+    this.loadMemories();
+    this._loadMemoryStats();
+  },
+
+  async _loadMemoryStats() {
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    try {
+      const res = await fetch(`${API_URL}/api/memories/stats`, { headers: this._authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      const el = id => document.getElementById(id);
+      if (el('mem-total')) el('mem-total').textContent = data.total ?? 0;
+      if (el('mem-pref-count')) el('mem-pref-count').textContent = data.by_type?.preference ?? 0;
+      const workCount = (data.total ?? 0) - (data.by_type?.preference ?? 0);
+      if (el('mem-work-count')) el('mem-work-count').textContent = workCount;
+    } catch (e) { /* ignore */ }
+  },
+
+  async loadMemories() {
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const tbody = document.getElementById('mem-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">로딩 중...</td></tr>';
+
+    const params = new URLSearchParams({
+      limit: this._memPageSize,
+      offset: this._memPage * this._memPageSize,
+    });
+    if (this._memType) params.set('type', this._memType);
+
+    try {
+      const res = await fetch(`${API_URL}/api/memories?${params}`, { headers: this._authHeaders() });
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      const memories = data.memories ?? [];
+      const total = data.total ?? 0;
+
+      if (memories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:24px">기억 없음</td></tr>';
+      } else {
+        tbody.innerHTML = memories.map(m => `
+          <tr>
+            <td><span class="mem-content" title="${this._esc(m.content)}">${this._esc(m.content)}</span></td>
+            <td><span class="mem-type-badge mem-type-${this._esc(m.memory_type)}">${this._esc(m.memory_type)}</span></td>
+            <td><span class="mem-topic" title="${this._esc(m.topic_key || '')}">${this._esc(m.topic_key || '—')}</span></td>
+            <td><span class="mem-importance">${'★'.repeat(m.importance ?? 3)}${'☆'.repeat(5 - (m.importance ?? 3))}</span></td>
+            <td style="font-size:11px;color:var(--text-3)">${(m.updated_at || m.created_at || '').slice(0,10)}</td>
+            <td style="white-space:nowrap">
+              <button class="s-btn-sm" onclick="SettingsPanel._editMemory('${m.id}')">편집</button>
+              <button class="s-btn-sm s-danger" onclick="SettingsPanel._deleteMemory('${m.id}')" style="margin-left:4px">삭제</button>
+            </td>
+          </tr>`).join('');
+      }
+
+      // 페이지네이션
+      const totalPages = Math.max(1, Math.ceil(total / this._memPageSize));
+      const pageInfo = document.getElementById('mem-page-info');
+      if (pageInfo) pageInfo.textContent = `${this._memPage + 1} / ${totalPages}`;
+      const prevBtn = document.getElementById('mem-prev-btn');
+      const nextBtn = document.getElementById('mem-next-btn');
+      if (prevBtn) prevBtn.disabled = this._memPage <= 0;
+      if (nextBtn) nextBtn.disabled = (this._memPage + 1) >= totalPages;
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--red,#ef4444);padding:24px">로드 실패: ${e.message}</td></tr>`;
+    }
+  },
+
+  async _deleteMemory(id) {
+    if (!confirm('이 기억을 삭제하시겠습니까?')) return;
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    try {
+      const res = await fetch(`${API_URL}/api/memories/${id}`, {
+        method: 'DELETE',
+        headers: this._authHeaders(),
+      });
+      if (!res.ok) throw new Error(res.status);
+      this.loadMemories();
+      this._loadMemoryStats();
+    } catch (e) {
+      alert('삭제 실패: ' + e.message);
+    }
+  },
+
+  async _editMemory(id) {
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    try {
+      const res = await fetch(`${API_URL}/api/memories/${id}`, { headers: this._authHeaders() });
+      if (!res.ok) throw new Error(res.status);
+      const m = await res.json();
+
+      const newContent = prompt('내용 수정:', m.content);
+      if (newContent === null) return;
+      const newImp = prompt('중요도 (1~5):', m.importance ?? 3);
+      if (newImp === null) return;
+
+      const patchRes = await fetch(`${API_URL}/api/memories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
+        body: JSON.stringify({ content: newContent.trim(), importance: parseInt(newImp) || 3 }),
+      });
+      if (!patchRes.ok) throw new Error(patchRes.status);
+      this.loadMemories();
+    } catch (e) {
+      alert('수정 실패: ' + e.message);
+    }
+  },
+
+  async _clearMemories(type) {
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const url = type ? `${API_URL}/api/memories?type=${type}` : `${API_URL}/api/memories`;
+    try {
+      const res = await fetch(url, { method: 'DELETE', headers: this._authHeaders() });
+      if (!res.ok) throw new Error(res.status);
+      this._memPage = 0;
+      this.loadMemories();
+      this._loadMemoryStats();
+    } catch (e) {
+      alert('삭제 실패: ' + e.message);
+    }
+  },
+
+  async _addMemory() {
+    const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : 'http://localhost:5000';
+    const type = document.getElementById('mem-add-type')?.value || 'preference';
+    const content = document.getElementById('mem-add-content')?.value?.trim();
+    const topicKey = document.getElementById('mem-add-topic')?.value?.trim() || null;
+    const importance = parseInt(document.getElementById('mem-add-importance')?.value) || 3;
+
+    if (!content) { alert('내용을 입력하세요.'); return; }
+
+    try {
+      const res = await fetch(`${API_URL}/api/memories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
+        body: JSON.stringify({ memory_type: type, topic_key: topicKey, content, importance }),
+      });
+      if (!res.ok) throw new Error(res.status);
+      // 폼 초기화
+      const contentEl = document.getElementById('mem-add-content');
+      const topicEl = document.getElementById('mem-add-topic');
+      if (contentEl) contentEl.value = '';
+      if (topicEl) topicEl.value = '';
+      this._memPage = 0;
+      this.loadMemories();
+      this._loadMemoryStats();
+    } catch (e) {
+      alert('추가 실패: ' + e.message);
+    }
+  },
+
+  _authHeaders() {
+    const userId = (typeof state !== 'undefined' && state.userId) ? state.userId : null;
+    return userId ? { 'X-User-Id': userId } : {};
   },
 
   // ── Private: HTML escape ─────────────────────────────────
