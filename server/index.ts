@@ -198,7 +198,7 @@ wss.on("connection", (ws: WebSocket, req) => {
     // ─── 세션 삭제 ───────────────────────────────────────────────────
     if (type === "sessions.delete") {
       try {
-        db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+        db.prepare("DELETE FROM sessions WHERE id = ? AND user_id = ?").run(sessionId, userId);
         sessions.delete(sessionId);
         ws.send(JSON.stringify({ type: "sessions.deleted", sessionId }));
       } catch (err) {
