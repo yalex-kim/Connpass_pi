@@ -49,8 +49,8 @@ router.get("/servers", (req, res) => {
 router.get("/servers/:id", (req, res) => {
   try {
     const row = db.prepare(
-      "SELECT id, name, url, transport, headers, enabled, created_at FROM mcp_servers WHERE id = ?"
-    ).get(req.params.id) as (Record<string, unknown> & { headers?: string }) | undefined;
+      "SELECT id, name, url, transport, headers, enabled, created_at FROM mcp_servers WHERE id = ? AND user_id = ?"
+    ).get(req.params.id, uid(req)) as (Record<string, unknown> & { headers?: string }) | undefined;
     if (!row) return res.status(404).json({ error: "Server not found" });
     if (row.headers) {
       try { row.headers = JSON.parse(row.headers as string) as unknown as string; } catch { row.headers = undefined; }
@@ -85,9 +85,9 @@ router.post("/servers", (req, res) => {
 // DELETE /api/mcp/servers/:id
 router.delete("/servers/:id", (req, res) => {
   try {
-    if (!db.prepare("SELECT id FROM mcp_servers WHERE id = ?").get(req.params.id))
+    if (!db.prepare("SELECT id FROM mcp_servers WHERE id = ? AND user_id = ?").get(req.params.id, uid(req)))
       return res.status(404).json({ error: "Server not found" });
-    db.prepare("DELETE FROM mcp_servers WHERE id = ?").run(req.params.id);
+    db.prepare("DELETE FROM mcp_servers WHERE id = ? AND user_id = ?").run(req.params.id, uid(req));
     invalidateMcpClient(req.params.id);
     res.json({ deleted: req.params.id });
   } catch (err) {
@@ -99,8 +99,8 @@ router.delete("/servers/:id", (req, res) => {
 router.post("/servers/:id/test", async (req, res) => {
   try {
     const row = db.prepare(
-      "SELECT id, name, url, transport, headers FROM mcp_servers WHERE id = ?"
-    ).get(req.params.id) as { id: string; name: string; url: string; transport: string; headers?: string } | undefined;
+      "SELECT id, name, url, transport, headers FROM mcp_servers WHERE id = ? AND user_id = ?"
+    ).get(req.params.id, uid(req)) as { id: string; name: string; url: string; transport: string; headers?: string } | undefined;
     if (!row) return res.status(404).json({ error: "Server not found" });
 
     const headers = parseHeaders(row.headers);

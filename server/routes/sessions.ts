@@ -80,8 +80,8 @@ router.post("/sessions", (req, res) => {
 router.get("/sessions/:id", (req, res) => {
   try {
     const session = db.prepare(
-      "SELECT id, title, persona, model, created_at, updated_at FROM sessions WHERE id = ?"
-    ).get(req.params.id);
+      "SELECT id, title, persona, model, created_at, updated_at FROM sessions WHERE id = ? AND user_id = ?"
+    ).get(req.params.id, uid(req));
     if (!session) return res.status(404).json({ error: "Session not found" });
     const messages = db.prepare(
       "SELECT id, role, content, created_at FROM messages WHERE session_id = ? ORDER BY created_at ASC"
@@ -121,7 +121,7 @@ router.get("/sessions/:id", (req, res) => {
 // PATCH /api/sessions/:id
 router.patch("/sessions/:id", (req, res) => {
   try {
-    if (!db.prepare("SELECT id FROM sessions WHERE id = ?").get(req.params.id))
+    if (!db.prepare("SELECT id FROM sessions WHERE id = ? AND user_id = ?").get(req.params.id, uid(req)))
       return res.status(404).json({ error: "Session not found" });
     const body = req.body ?? {};
     const fields: string[] = [];
@@ -131,8 +131,8 @@ router.patch("/sessions/:id", (req, res) => {
     }
     if (!fields.length) return res.status(400).json({ error: "No fields to update" });
     fields.push("updated_at = ?");
-    values.push(new Date().toISOString(), req.params.id);
-    db.prepare(`UPDATE sessions SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+    values.push(new Date().toISOString(), req.params.id, uid(req));
+    db.prepare(`UPDATE sessions SET ${fields.join(", ")} WHERE id = ? AND user_id = ?`).run(...values);
     res.json(db.prepare("SELECT id, title, persona, model, created_at, updated_at FROM sessions WHERE id = ?").get(req.params.id));
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -142,9 +142,9 @@ router.patch("/sessions/:id", (req, res) => {
 // DELETE /api/sessions/:id
 router.delete("/sessions/:id", (req, res) => {
   try {
-    if (!db.prepare("SELECT id FROM sessions WHERE id = ?").get(req.params.id))
+    if (!db.prepare("SELECT id FROM sessions WHERE id = ? AND user_id = ?").get(req.params.id, uid(req)))
       return res.status(404).json({ error: "Session not found" });
-    db.prepare("DELETE FROM sessions WHERE id = ?").run(req.params.id);
+    db.prepare("DELETE FROM sessions WHERE id = ? AND user_id = ?").run(req.params.id, uid(req));
     res.json({ deleted: req.params.id });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -159,7 +159,7 @@ router.post("/sessions/:id/messages", (req, res) => {
       return res.status(400).json({ error: "role and content are required" });
     if (!["system", "user", "assistant", "tool"].includes(body.role))
       return res.status(400).json({ error: "Invalid role" });
-    if (!db.prepare("SELECT id FROM sessions WHERE id = ?").get(req.params.id))
+    if (!db.prepare("SELECT id FROM sessions WHERE id = ? AND user_id = ?").get(req.params.id, uid(req)))
       return res.status(404).json({ error: "Session not found" });
     const msgId = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -177,7 +177,7 @@ router.post("/sessions/:id/messages", (req, res) => {
 
 // POST /api/sessions/:id/upload (Phase 8 스텁)
 router.post("/sessions/:id/upload", (req, res) => {
-  if (!db.prepare("SELECT id FROM sessions WHERE id = ?").get(req.params.id))
+  if (!db.prepare("SELECT id FROM sessions WHERE id = ? AND user_id = ?").get(req.params.id, uid(req)))
     return res.status(404).json({ error: "Session not found" });
   res.status(202).json({ status: "stub", session_id: req.params.id, message: "File upload will be implemented in Phase 8" });
 });

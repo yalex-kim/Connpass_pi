@@ -153,7 +153,9 @@ router.get("/llm-configs", (req, res) => {
 // GET /api/settings/llm-configs/:model_id
 router.get("/llm-configs/:model_id(*)", (req, res) => {
   try {
-    const row = db.prepare("SELECT * FROM llm_model_configs WHERE model_id = ?").get(req.params["model_id"]);
+    const row = db.prepare(
+      "SELECT * FROM llm_model_configs WHERE model_id = ? AND (is_builtin = 1 OR user_id = ?)"
+    ).get(req.params["model_id"], uid(req));
     if (!row) {
       return res.json({
         model_id: req.params["model_id"], display_name: req.params["model_id"],
@@ -190,10 +192,16 @@ router.put("/llm-configs/:model_id(*)", (req, res) => {
   try {
     const body = req.body ?? {};
     const model_id = req.params["model_id"];
+    const existing = db.prepare(
+      "SELECT is_builtin, user_id FROM llm_model_configs WHERE model_id = ?"
+    ).get(model_id) as { is_builtin: number; user_id: string | null } | undefined;
+    // 다른 유저의 커스텀 모델은 수정 불가
+    if (existing && !existing.is_builtin && existing.user_id !== uid(req))
+      return res.status(403).json({ error: "Cannot modify another user's model configuration" });
     db.prepare(
-      "INSERT INTO llm_model_configs (model_id, display_name, base_url, api_key, temperature, max_tokens, context_window, is_builtin) VALUES (?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(model_id) DO UPDATE SET display_name=excluded.display_name, base_url=excluded.base_url, api_key=excluded.api_key, temperature=excluded.temperature, max_tokens=excluded.max_tokens, context_window=excluded.context_window"
+      "INSERT INTO llm_model_configs (model_id, display_name, base_url, api_key, temperature, max_tokens, context_window, is_builtin, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?) ON CONFLICT(model_id) DO UPDATE SET display_name=excluded.display_name, base_url=excluded.base_url, api_key=excluded.api_key, temperature=excluded.temperature, max_tokens=excluded.max_tokens, context_window=excluded.context_window WHERE is_builtin = 0 AND user_id = excluded.user_id"
     ).run(model_id, body.display_name ?? model_id, body.base_url ?? "http://vllm.internal/v1",
-      body.api_key ?? "", body.temperature ?? 0.7, body.max_tokens ?? 4096, body.context_window ?? 128000);
+      body.api_key ?? "", body.temperature ?? 0.7, body.max_tokens ?? 4096, body.context_window ?? 128000, uid(req));
     res.json(db.prepare("SELECT * FROM llm_model_configs WHERE model_id = ?").get(model_id));
   } catch (err) {
     res.status(500).json({ error: String(err) });
