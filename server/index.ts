@@ -47,14 +47,15 @@ const sessions = new Map<string, SessionState>();
 
 // ─── DB 직접 헬퍼 ──────────────────────────────────────────────────────────────
 
-function saveMessage(sessionId: string, role: string, content: unknown) {
+function saveMessage(sessionId: string, role: string, content: unknown, messageId?: string) {
   try {
-    const msgId = crypto.randomUUID();
+    const msgId = messageId ?? crypto.randomUUID();
     const now = new Date().toISOString();
     db.prepare("INSERT INTO messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)").run(
       msgId, sessionId, role, JSON.stringify(content), now
     );
     db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(now, sessionId);
+    return msgId;
   } catch { /* 저장 실패 무시 */ }
 }
 
@@ -249,7 +250,8 @@ wss.on("connection", (ws: WebSocket, req) => {
       if (existing) existing.controller.abort();
 
       const controller = new AbortController();
-      const agent = await createAgent(ws, sessionId, config, userId);
+      const assistantMsgId = crypto.randomUUID();
+      const agent = await createAgent(ws, sessionId, config, userId, assistantMsgId);
       sessions.set(sessionId, { agent, controller });
 
       const history = loadHistory(sessionId);
@@ -262,7 +264,7 @@ wss.on("connection", (ws: WebSocket, req) => {
         await agent.prompt(message);
         const msgs = agent.state.messages;
         const lastAssistant = [...msgs].reverse().find((m) => (m as { role?: string }).role === "assistant");
-        if (lastAssistant) saveMessage(sessionId, "assistant", lastAssistant);
+        if (lastAssistant) saveMessage(sessionId, "assistant", lastAssistant, assistantMsgId);
         if (history.length === 0) {
           const title = await generateTitle(message, config.model);
           db.prepare("UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?").run(

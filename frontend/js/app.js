@@ -34,7 +34,10 @@ const state = {
     maxToolSteps: 10,
     thinkingMode: 'off',
   },
-  currentMessageId: null,
+  currentTurnId: null,
+  currentTextBlockId: null,
+  currentThinkingBlockId: null,
+  lastEventWasToolCall: false,
   sessions: [],
   persona: 'BT',
 };
@@ -84,7 +87,16 @@ function connectWS() {
 
       // 생성 중이었으면 종료 처리
       if (state.isGenerating) {
-        ChatRenderer.finalizeMessage(state.currentMessageId);
+        if (state.currentThinkingBlockId) {
+          ChatRenderer.finalizeThinkingBlock(state.currentThinkingBlockId);
+          state.currentThinkingBlockId = null;
+        }
+        if (state.currentTextBlockId) {
+          ChatRenderer.finalizeTextBlock(state.currentTextBlockId);
+          state.currentTextBlockId = null;
+        }
+        state.currentTurnId = null;
+        state.lastEventWasToolCall = false;
         setGenerating(false);
         showToast('연결이 끊어졌습니다. 재연결 중...', 'error');
       }
@@ -103,40 +115,84 @@ function connectWS() {
 
 function handleWsMessage(data) {
   switch (data.type) {
+    case 'thinking':
+      if (data.delta !== undefined) {
+        if (!state.currentThinkingBlockId) {
+          state.currentThinkingBlockId = generateId();
+          ChatRenderer.startThinkingBlock(state.currentThinkingBlockId, state.currentTurnId);
+        }
+        ChatRenderer.appendThinking(state.currentThinkingBlockId, data.delta);
+      }
+      break;
+
     case 'token':
       if (data.delta !== undefined) {
-        ChatRenderer.appendToken(state.currentMessageId, data.delta);
+        // thinking 블록이 열려있으면 완료 처리
+        if (state.currentThinkingBlockId) {
+          ChatRenderer.finalizeThinkingBlock(state.currentThinkingBlockId);
+          state.currentThinkingBlockId = null;
+        }
+        // tool_end 이후이거나 text block이 없으면 새 블록 생성
+        if (!state.currentTextBlockId || state.lastEventWasToolCall) {
+          state.currentTextBlockId = generateId();
+          state.lastEventWasToolCall = false;
+          ChatRenderer.startTextBlock(state.currentTextBlockId, state.currentTurnId);
+        }
+        ChatRenderer.appendToken(state.currentTextBlockId, data.delta);
       }
       break;
 
     case 'tool_start':
-      ChatRenderer.createToolCard(
+      // 열린 text block 중간 finalize
+      if (state.currentTextBlockId) {
+        ChatRenderer.finalizeTextBlock(state.currentTextBlockId);
+        state.currentTextBlockId = null;
+      }
+      state.lastEventWasToolCall = true;
+      ChatRenderer.addToolCallBlock(
         data.toolCallId,
         data.toolName,
         data.toolLabel || data.toolName,
-        data.params || data.input
+        data.params || data.input,
+        state.currentTurnId
       );
       break;
 
     case 'tool_end':
-      ChatRenderer.updateToolCard(data.toolCallId, data.details || { summary: data.result });
+      ChatRenderer.updateToolCallBlock(data.toolCallId, data.details || { summary: data.result });
       break;
 
     case 'agent_end':
-      ChatRenderer.finalizeMessage(state.currentMessageId);
+      if (state.currentThinkingBlockId) {
+        ChatRenderer.finalizeThinkingBlock(state.currentThinkingBlockId);
+        state.currentThinkingBlockId = null;
+      }
+      if (state.currentTextBlockId) {
+        ChatRenderer.finalizeTextBlock(state.currentTextBlockId);
+        state.currentTextBlockId = null;
+      }
+      state.currentTurnId = null;
+      state.lastEventWasToolCall = false;
       setGenerating(false);
       updateTokenCounter(data.usage);
       break;
 
     case 'compaction':
-      ChatRenderer.addCompactionNotice(data.message || '대화가 길어져 이전 내용을 요약했습니다');
+      ChatRenderer.addCompactionBlock(data.message || '대화가 길어져 이전 내용을 요약했습니다');
       break;
 
     case 'error':
-      showToast(data.message || '오류가 발생했습니다', 'error');
-      if (state.currentMessageId) {
-        ChatRenderer.finalizeMessage(state.currentMessageId);
+      if (state.currentThinkingBlockId) {
+        ChatRenderer.finalizeThinkingBlock(state.currentThinkingBlockId);
+        state.currentThinkingBlockId = null;
       }
+      if (state.currentTextBlockId) {
+        ChatRenderer.finalizeTextBlock(state.currentTextBlockId);
+        state.currentTextBlockId = null;
+      }
+      state.currentTurnId = null;
+      state.lastEventWasToolCall = false;
+      ChatRenderer.addErrorBlock(data.message || '오류가 발생했습니다', data.code);
       setGenerating(false);
       break;
 
@@ -162,7 +218,6 @@ function handleWsMessage(data) {
       break;
 
     default:
-      // 알 수 없는 메시지 타입 무시
       break;
   }
 }
@@ -220,8 +275,12 @@ async function sendMessage(text) {
   }
 
   setGenerating(true);
-  ChatRenderer.addUserMessage(text, generateId());
-  state.currentMessageId = generateId();
+  ChatRenderer.addUserBlock(text, generateId());
+  // turn ID 초기화 (text block은 첫 token 도착 시 lazy 생성)
+  state.currentTurnId = generateId();
+  state.currentTextBlockId = null;
+  state.currentThinkingBlockId = null;
+  state.lastEventWasToolCall = false;
 
   // 입력창 초기화 및 포커스 유지
   const textarea = document.getElementById('main-input');
@@ -232,9 +291,11 @@ async function sendMessage(text) {
   }
 
   if (state.isTranslateMode) {
-    // 번역 모드: tool_choice: none, LLM 직통
+    // 번역 모드: tool_choice: none, LLM 직통 — 기존 방식 유지
+    const translateId = generateId();
+    state.currentTextBlockId = translateId;
     ChatRenderer.createTranslateMessage(
-      state.currentMessageId,
+      translateId,
       'AUTO',
       state.translateConfig.targetLang
     );
@@ -248,8 +309,7 @@ async function sendMessage(text) {
       },
     }));
   } else {
-    // 일반 채팅 모드: Agent loop
-    ChatRenderer.createAssistantMessage(state.currentMessageId);
+    // 일반 채팅 모드: Agent loop — text block은 첫 token 도착 시 lazy 생성
     state.ws.send(JSON.stringify({
       type: 'chat',
       sessionId: state.currentSessionId,
@@ -270,9 +330,16 @@ function stopGeneration() {
       sessionId: state.currentSessionId,
     }));
   }
-  if (state.currentMessageId) {
-    ChatRenderer.finalizeMessage(state.currentMessageId);
+  if (state.currentThinkingBlockId) {
+    ChatRenderer.finalizeThinkingBlock(state.currentThinkingBlockId);
+    state.currentThinkingBlockId = null;
   }
+  if (state.currentTextBlockId) {
+    ChatRenderer.finalizeTextBlock(state.currentTextBlockId);
+    state.currentTextBlockId = null;
+  }
+  state.currentTurnId = null;
+  state.lastEventWasToolCall = false;
   setGenerating(false);
 }
 
@@ -302,40 +369,62 @@ async function createNewSession() {
 
 async function loadSession(sessionId) {
   state.currentSessionId = sessionId;
+  state.currentTurnId = null;
+  state.currentTextBlockId = null;
+  state.currentThinkingBlockId = null;
+  state.lastEventWasToolCall = false;
   ChatRenderer.clear();
   ChatRenderer.showEmpty();
 
-  // 세션 히스토리는 Flask REST API로 직접 로드
   try {
     const res = await fetch(`${API_URL}/api/sessions/${sessionId}`);
     if (res.ok) {
       const data = await res.json();
       const messages = data.messages || [];
+      const toolCallsByMessage = data.toolCallsByMessage || {};
+
       if (messages.length > 0) {
         const emptyState = document.getElementById('empty-state');
         if (emptyState) emptyState.style.display = 'none';
+
         messages.forEach(msg => {
           let content = msg.content;
           try { content = JSON.parse(content); } catch { /* 문자열 그대로 사용 */ }
+
           if (msg.role === 'user') {
             const text = typeof content === 'string' ? content : (content[0]?.text ?? '');
-            ChatRenderer.addUserMessage(text, generateId());
+            ChatRenderer.addUserBlock(text, generateId());
+
           } else if (msg.role === 'assistant') {
+            const turnId = generateId();
             let text;
             if (typeof content === 'string') {
               text = content;
             } else if (Array.isArray(content)) {
               text = content.find(b => b.type === 'text')?.text ?? '';
             } else if (content?.content && Array.isArray(content.content)) {
-              // AgentMessage 객체: { role, content: [{type, text}], ... }
               text = content.content.find(b => b.type === 'text')?.text ?? '';
             } else {
               text = '';
             }
-            const id = generateId();
-            ChatRenderer.createAssistantMessage(id);
-            ChatRenderer.appendToken(id, text);
-            ChatRenderer.finalizeMessage(id);
+
+            // 텍스트 블록 (있으면)
+            if (text) {
+              const textBlockId = generateId();
+              ChatRenderer.startTextBlock(textBlockId, turnId);
+              ChatRenderer.appendToken(textBlockId, text);
+              ChatRenderer.finalizeTextBlock(textBlockId);
+            }
+
+            // tool_calls 재현 (있으면)
+            const toolCalls = toolCallsByMessage[msg.id] || [];
+            toolCalls.forEach(tc => {
+              ChatRenderer.addToolCallBlock(tc.id, tc.toolName, tc.toolLabel, tc.args, turnId);
+              ChatRenderer.updateToolCallBlock(tc.id, tc.isError
+                ? { error: typeof tc.result === 'object' ? JSON.stringify(tc.result) : String(tc.result || 'Error') }
+                : { summary: typeof tc.result === 'string' ? tc.result : JSON.stringify(tc.result) }
+              );
+            });
           }
         });
       }
@@ -552,7 +641,10 @@ function toggleIndex(indexId, chipEl) {
 // ─── 새 채팅 ─────────────────────────────────────────────────────────────────
 function startNewChat() {
   state.currentSessionId = null;
-  state.currentMessageId = null;
+  state.currentTurnId = null;
+  state.currentTextBlockId = null;
+  state.currentThinkingBlockId = null;
+  state.lastEventWasToolCall = false;
 
   ChatRenderer.clear();
   ChatRenderer.showEmpty();

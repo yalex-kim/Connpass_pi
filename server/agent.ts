@@ -61,7 +61,8 @@ export async function createAgent(
   ws: WebSocket,
   sessionId: string,
   config: ChatConfig,
-  userId: string
+  userId: string,
+  assistantMessageId: string
 ) {
   // OpenAI 모델은 정적, 사내 vLLM 모델은 DB에서 최신 설정을 동적으로 로드
   const isOpenAI = config.model.startsWith("gpt-");
@@ -106,13 +107,22 @@ export async function createAgent(
     streamFn: streamFnWithConfig,
   });
 
-  // 이벤트 → WebSocket 브로드캐스트 (T-031)
+  // tool call 순서 추적
+  let toolCallOrder = 0;
+
+  // 이벤트 → WebSocket 브로드캐스트
   agent.subscribe((event) => {
     console.log(`[Agent] event=${event.type}`);
     switch (event.type) {
       case "message_update":
         console.log(`[Agent] assistantMsgEvent=${JSON.stringify((event as { assistantMessageEvent?: unknown }).assistantMessageEvent)?.slice(0,80)}`);
-        if (event.assistantMessageEvent.type === "text_delta") {
+        if (event.assistantMessageEvent.type === "thinking_delta") {
+          ws.send(JSON.stringify({
+            type: "thinking",
+            sessionId,
+            delta: event.assistantMessageEvent.delta,
+          }));
+        } else if (event.assistantMessageEvent.type === "text_delta") {
           ws.send(JSON.stringify({
             type: "token",
             sessionId,
@@ -121,26 +131,58 @@ export async function createAgent(
         }
         break;
 
-      case "tool_execution_start":
+      case "tool_execution_start": {
+        const toolLabel = (event as { toolLabel?: string }).toolLabel ?? event.toolName;
         ws.send(JSON.stringify({
           type: "tool_start",
           sessionId,
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          toolLabel: (event as { toolLabel?: string }).toolLabel ?? event.toolName,
+          toolLabel,
           params: event.args,
         }));
+        // DB 저장
+        try {
+          db.prepare(
+            `INSERT INTO tool_calls (id, message_id, session_id, tool_name, tool_label, args, started_at, order_idx)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          ).run(
+            event.toolCallId,
+            assistantMessageId,
+            sessionId,
+            event.toolName,
+            toolLabel,
+            JSON.stringify(event.args ?? {}),
+            new Date().toISOString(),
+            toolCallOrder++
+          );
+        } catch (e) { console.error("[Agent] tool_call insert error:", e); }
         break;
+      }
 
-      case "tool_execution_end":
+      case "tool_execution_end": {
+        const details = event.result?.details ?? {};
+        const isError = event.result?.isError ?? false;
         ws.send(JSON.stringify({
           type: "tool_end",
           sessionId,
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          details: event.result?.details ?? {},
+          details,
         }));
+        // DB 업데이트
+        try {
+          db.prepare(
+            `UPDATE tool_calls SET result = ?, is_error = ?, ended_at = ? WHERE id = ?`
+          ).run(
+            JSON.stringify(details),
+            isError ? 1 : 0,
+            new Date().toISOString(),
+            event.toolCallId
+          );
+        } catch (e) { console.error("[Agent] tool_call update error:", e); }
         break;
+      }
 
       case "agent_end":
         ws.send(JSON.stringify({
