@@ -97,6 +97,24 @@ VALUES
     ('Kimi-K2.5',    'Kimi-K2.5',    'http://vllm.internal/v1', 0.7, 4096,  32000,  1, 'default'),
     ('GPT-OSS-120B', 'GPT-OSS-120B', 'http://vllm.internal/v1', 0.7, 8192,  128000, 1, 'default');
 
+CREATE TABLE IF NOT EXISTS tool_calls (
+    id          TEXT PRIMARY KEY,
+    message_id  TEXT NOT NULL,
+    session_id  TEXT NOT NULL,
+    tool_name   TEXT NOT NULL,
+    tool_label  TEXT,
+    args        TEXT,
+    result      TEXT,
+    is_error    INTEGER DEFAULT 0,
+    started_at  TEXT NOT NULL,
+    ended_at    TEXT,
+    order_idx   INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_tool_calls_message_id ON tool_calls(message_id);
+CREATE INDEX IF NOT EXISTS idx_tool_calls_session_id ON tool_calls(session_id);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);

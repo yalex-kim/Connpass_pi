@@ -86,7 +86,33 @@ router.get("/sessions/:id", (req, res) => {
     const messages = db.prepare(
       "SELECT id, role, content, created_at FROM messages WHERE session_id = ? ORDER BY created_at ASC"
     ).all(req.params.id);
-    res.json({ ...(session as object), messages });
+
+    // tool_calls를 message_id 기준으로 그룹핑
+    const toolCallRows = db.prepare(
+      "SELECT id, message_id, tool_name, tool_label, args, result, is_error, started_at, ended_at, order_idx FROM tool_calls WHERE session_id = ? ORDER BY order_idx ASC"
+    ).all(req.params.id) as Array<{
+      id: string; message_id: string; tool_name: string; tool_label: string;
+      args: string; result: string; is_error: number;
+      started_at: string; ended_at: string; order_idx: number;
+    }>;
+
+    const toolCallsByMessage: Record<string, object[]> = {};
+    for (const tc of toolCallRows) {
+      if (!toolCallsByMessage[tc.message_id]) toolCallsByMessage[tc.message_id] = [];
+      toolCallsByMessage[tc.message_id].push({
+        id: tc.id,
+        toolName: tc.tool_name,
+        toolLabel: tc.tool_label,
+        args: tc.args ? JSON.parse(tc.args) : {},
+        result: tc.result ? JSON.parse(tc.result) : null,
+        isError: tc.is_error === 1,
+        startedAt: tc.started_at,
+        endedAt: tc.ended_at,
+        orderIdx: tc.order_idx,
+      });
+    }
+
+    res.json({ ...(session as object), messages, toolCallsByMessage });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
