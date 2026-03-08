@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "bin": {
-    "connpass": "./dist/cli.js"
+    "connpass": "./bin/connpass.js"
   },
   "scripts": {
     "dev": "tsx watch index.ts",
