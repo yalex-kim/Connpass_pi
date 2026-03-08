@@ -62,13 +62,16 @@ async function buildSystemPrompt(sessionId: string, userId: string, sessionConte
 ${jiraServersSection}${memorySection}${agentMd ? `\n<user_instructions>\n${agentMd}\n</user_instructions>` : ""}${skillsSection}`;
 }
 
+type WsLike = { send(data: string): void };
+
 export async function createAgent(
-  ws: WebSocket,
+  ws: WsLike,
   sessionId: string,
   config: ChatConfig,
   userId: string,
   assistantMessageId: string,
-  sessionContext = ""    // 장기기억 조회용 컨텍스트 (첫 메시지 또는 세션 제목)
+  sessionContext = "",    // 장기기억 조회용 컨텍스트 (첫 메시지 또는 세션 제목)
+  extraTools: AgentTool[] = []
 ) {
   // OpenAI 모델은 정적, 사내 vLLM 모델은 DB에서 최신 설정을 동적으로 로드
   const isOpenAI = config.model.startsWith("gpt-");
@@ -100,6 +103,9 @@ export async function createAgent(
   // 로컬 MCP 서버 툴 동적 로드 (Jira, Gerrit 등 모두 포함)
   const mcpTools = await loadAllMcpTools(userId).catch(() => []);
   toolList.push(...mcpTools);
+
+  // 호출자 제공 추가 도구 (예: CLI 코딩 도구)
+  toolList.push(...extraTools);
 
   // temperature를 streamFn에 주입 (pi-agent-core Agent가 temperature를 직접 지원하지 않으므로 래핑)
   // OpenAI 모델: apiKey를 넘기지 않아야 pi-ai가 OPENAI_API_KEY 환경변수를 사용함

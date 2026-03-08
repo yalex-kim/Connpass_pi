@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "dist",
+    "rootDir": ".",
+    "esModuleInterop": true,
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": ["cli.ts", "agent.ts", "models.ts", "db.ts", "translate.ts", "compaction.ts", "memory.ts", "tools/**/*.ts", "routes/**/*.ts"]
+}

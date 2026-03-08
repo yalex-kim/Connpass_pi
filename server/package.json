@@ -2,9 +2,15 @@
   "name": "connpass-server",
   "version": "1.0.0",
   "type": "module",
+  "bin": {
+    "connpass": "./dist/cli.js"
+  },
   "scripts": {
     "dev": "tsx watch index.ts",
-    "start": "tsx index.ts"
+    "start": "tsx index.ts",
+    "cli": "tsx cli.ts",
+    "cli:dev": "tsx watch cli.ts",
+    "build:cli": "tsc --project tsconfig.cli.json"
   },
   "dependencies": {
     "@mariozechner/pi-ai": "latest",
