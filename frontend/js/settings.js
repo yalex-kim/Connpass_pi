@@ -268,7 +268,7 @@ const SettingsPanel = {
       fileInput.addEventListener('change', () => {
         const file = fileInput.files[0];
         uploadBtn.disabled = !file;
-        if (uploadText) uploadText.textContent = file ? file.name : '파일 선택 (.md)';
+        if (uploadText) uploadText.textContent = file ? file.name : window.t('skill.selectFile');
       });
       const uploadLabel = document.getElementById('skill-upload-label');
       if (uploadLabel) {
@@ -414,7 +414,7 @@ const SettingsPanel = {
       const saveBtn = document.getElementById('save-common-params-btn');
       if (saveBtn) {
         const orig = saveBtn.textContent;
-        saveBtn.textContent = '저장됨 ✓';
+        saveBtn.textContent = window.t('settings.saved') + ' ✓';
         saveBtn.disabled = true;
         setTimeout(() => { saveBtn.textContent = orig; saveBtn.disabled = false; }, 1500);
       }
@@ -460,12 +460,12 @@ const SettingsPanel = {
       const saveBtn = row.querySelector('.llm-cfg-save-btn');
       if (saveBtn) {
         const orig = saveBtn.textContent;
-        saveBtn.textContent = '저장됨 ✓';
+        saveBtn.textContent = window.t('settings.saved') + ' ✓';
         saveBtn.disabled = true;
         setTimeout(() => { saveBtn.textContent = orig; saveBtn.disabled = false; }, 1500);
       }
     } catch (e) {
-      alert(`저장 실패: ${e.message}`);
+      alert(window.t('llm.saveFailed', { msg: e.message }));
     }
   },
 
@@ -599,11 +599,11 @@ const SettingsPanel = {
     const selectEl = document.getElementById('new-llm-model-id');
 
     if (!baseUrl) {
-      if (statusEl) statusEl.textContent = '서버 URL을 입력하세요';
+      if (statusEl) statusEl.textContent = window.t('llm.enterUrl');
       return;
     }
 
-    if (statusEl) { statusEl.textContent = '조회 중...'; statusEl.style.color = 'var(--text-2)'; }
+    if (statusEl) { statusEl.textContent = window.t('llm.fetching'); statusEl.style.color = 'var(--text-2)'; }
 
     try {
       const params = new URLSearchParams({ base_url: baseUrl });
@@ -615,7 +615,7 @@ const SettingsPanel = {
 
       const models = data.models || [];
       if (models.length === 0) {
-        if (statusEl) { statusEl.textContent = '모델 없음'; statusEl.style.color = 'var(--orange)'; }
+        if (statusEl) { statusEl.textContent = window.t('llm.noModels'); statusEl.style.color = 'var(--orange)'; }
         return;
       }
 
@@ -628,11 +628,11 @@ const SettingsPanel = {
         selectEl.innerHTML = '<option value="">— 모델 선택 —</option>' +
           models.map(id => {
             const registered = existingIds.includes(id);
-            return `<option value="${id}"${registered ? ' disabled' : ''}>${id}${registered ? ' (등록됨)' : ''}</option>`;
+            return `<option value="${id}"${registered ? ' disabled' : ''}>${id}${registered ? ' (' + window.t('llm.alreadyRegistered') + ')' : ''}</option>`;
           }).join('');
       }
       if (pickerEl) pickerEl.style.display = 'block';
-      if (statusEl) { statusEl.textContent = `${models.length}개 모델 발견`; statusEl.style.color = 'var(--green)'; }
+      if (statusEl) { statusEl.textContent = window.t('llm.modelsFound', { n: models.length }); statusEl.style.color = 'var(--green)'; }
     } catch (e) {
       if (statusEl) { statusEl.textContent = e.message; statusEl.style.color = 'var(--red)'; }
     }
@@ -649,10 +649,10 @@ const SettingsPanel = {
     const maxTokens = parseInt(document.getElementById('new-llm-max-tokens')?.value || '4096');
     const ctxWindow = parseInt(document.getElementById('new-llm-ctx')?.value || '128000');
 
-    if (!modelId) { alert('모델을 선택해주세요'); return; }
+    if (!modelId) { alert(window.t('llm.selectFirst')); return; }
 
     const btn = document.getElementById('register-llm-model-btn');
-    if (btn) { btn.textContent = '등록 중...'; btn.disabled = true; }
+    if (btn) { btn.textContent = window.t('llm.registering'); btn.disabled = true; }
 
     try {
       const res = await fetch(`${API_URL}/api/settings/llm-configs`, {
@@ -677,15 +677,15 @@ const SettingsPanel = {
       this._resetLlmForm();
       await this.loadLlmConfigs();
     } catch (e) {
-      alert(`등록 실패: ${e.message}`);
+      alert(window.t('llm.registerFailed', { msg: e.message }));
     } finally {
-      if (btn) { btn.textContent = '등록'; btn.disabled = false; }
+      if (btn) { btn.textContent = window.t('llm.register'); btn.disabled = false; }
     }
   },
 
   // ── LLM 모델 삭제 ───────────────────────────────────────
   async deleteLlmModel(modelId) {
-    if (!confirm(`"${modelId}" 모델을 삭제할까요?`)) return;
+    if (!confirm(window.t('llm.deleteConfirm', { model: modelId }))) return;
     const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     try {
       const res = await fetch(`${API_URL}/api/settings/llm-configs/${encodeURIComponent(modelId)}`, { method: 'DELETE' });
@@ -693,7 +693,7 @@ const SettingsPanel = {
       if (!res.ok) throw new Error(data.error || 'Failed');
       await this.loadLlmConfigs();
     } catch (e) {
-      alert(`삭제 실패: ${e.message}`);
+      alert(window.t('llm.deleteFailed', { msg: e.message }));
     }
   },
 
@@ -808,7 +808,7 @@ const SettingsPanel = {
     container.innerHTML = '';
 
     if (skills.length === 0) {
-      container.innerHTML = '<div style="font-size:11px;color:var(--text-2);padding:8px 0">등록된 Skill이 없습니다.</div>';
+      container.innerHTML = `<div style="font-size:11px;color:var(--text-2);padding:8px 0">${window.t('skill.empty')}</div>`;
       return;
     }
 
@@ -825,8 +825,8 @@ const SettingsPanel = {
           <div class="s-mcp-acts">
             <button class="s-btn-sm skill-md-toggle-btn" data-dir="${this._esc(skill.dir_name)}">SKILL.md</button>
             ${isShared
-              ? '<span style="font-size:10px;color:var(--text-2);padding:0 4px">공유</span>'
-              : `<button class="s-btn-sm s-danger" onclick="SettingsPanel._deleteSkill('${this._esc(skill.dir_name)}','${this._esc(skill.name)}')">삭제</button>`
+              ? `<span style="font-size:10px;color:var(--text-2);padding:0 4px">${window.t('skill.shared')}</span>`
+              : `<button class="s-btn-sm s-danger" onclick="SettingsPanel._deleteSkill('${this._esc(skill.dir_name)}','${this._esc(skill.name)}')">${window.t('skill.delete')}</button>`
             }
           </div>
         </div>
@@ -857,32 +857,32 @@ const SettingsPanel = {
       formData.append('file', file);
       const res = await fetch(`${API_URL}/api/skills/upload`, { method: 'POST', body: formData });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '업로드 실패');
-      if (typeof showToast !== 'undefined') showToast(`"${data.name}" Skill 추가됨`, 'success');
+      if (!res.ok) throw new Error(data.error || window.t('skill.uploadFailed', { msg: '' }));
+      if (typeof showToast !== 'undefined') showToast(window.t('skill.added', { name: data.name }), 'success');
       fileInput.value = '';
       const uploadText = document.getElementById('skill-upload-text');
-      if (uploadText) uploadText.textContent = '파일 선택 (.md)';
+      if (uploadText) uploadText.textContent = window.t('skill.selectFile');
       await this.loadSkills();
     } catch (e) {
-      if (typeof showToast !== 'undefined') showToast('업로드 실패: ' + e.message, 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('skill.uploadFailed', { msg: e.message }), 'error');
     } finally {
       if (uploadBtn) uploadBtn.disabled = false;
     }
   },
 
   async _deleteSkill(dirName, name) {
-    if (!confirm(`"${name}" Skill을 삭제하시겠습니까?`)) return;
+    if (!confirm(window.t('skill.deleteConfirm', { name }))) return;
     try {
       const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
       const res = await fetch(`${API_URL}/api/skills/${encodeURIComponent(dirName)}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || '삭제 실패');
+        throw new Error(data.error || window.t('skill.deleteFailed', { msg: '' }));
       }
-      if (typeof showToast !== 'undefined') showToast(`"${name}" 삭제됨`, 'success');
+      if (typeof showToast !== 'undefined') showToast(window.t('skill.deleted', { name }), 'success');
       await this.loadSkills();
     } catch (e) {
-      if (typeof showToast !== 'undefined') showToast('삭제 실패: ' + e.message, 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('skill.deleteFailed', { msg: e.message }), 'error');
     }
   },
 
@@ -983,7 +983,7 @@ const SettingsPanel = {
     const transport = transportSelect?.value || 'streamable-http';
 
     if (!name || !url) {
-      if (typeof showToast !== 'undefined') showToast('이름과 URL을 입력하세요', 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('mcp.nameUrlRequired'), 'error');
       return;
     }
 
@@ -992,14 +992,14 @@ const SettingsPanel = {
 
     try {
       await this.addMcpServer(name, url, transport);
-      if (typeof showToast !== 'undefined') showToast(`${name} MCP 서버가 등록되었습니다`, 'success');
+      if (typeof showToast !== 'undefined') showToast(window.t('mcp.registeredSuccess', { name }), 'success');
       if (nameInput) nameInput.value = '';
       if (urlInput) urlInput.value = '';
       const form = document.getElementById('s-add-mcp');
       if (form) form.classList.remove('open');
       await this.loadMcpServers();
     } catch (e) {
-      if (typeof showToast !== 'undefined') showToast('MCP 서버 등록 실패: ' + e.message, 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('mcp.registerFailed', { msg: e.message }), 'error');
     } finally {
       if (registerBtn) registerBtn.disabled = false;
     }
@@ -1020,8 +1020,8 @@ const SettingsPanel = {
           <div class="s-dot ${isOn ? 's-dot-on' : 's-dot-off'}"></div>
           <span class="s-mcp-name">${this._esc(srv.name)}</span>
           <div class="s-mcp-acts">
-            <button class="s-btn-sm" onclick="SettingsPanel.testMcpServer('${srv.id}').then(r => alert(JSON.stringify(r)))">테스트</button>
-            <button class="s-btn-sm s-danger" onclick="SettingsPanel._confirmDeleteMcp('${srv.id}','${this._esc(srv.name)}')">삭제</button>
+            <button class="s-btn-sm" onclick="SettingsPanel.testMcpServer('${srv.id}').then(r => alert(JSON.stringify(r)))">${window.t('mcp.test')}</button>
+            <button class="s-btn-sm s-danger" onclick="SettingsPanel._confirmDeleteMcp('${srv.id}','${this._esc(srv.name)}')">${window.t('mcp.delete')}</button>
           </div>
           <button class="s-tog ${isOn ? 'on' : ''}" onclick="this.classList.toggle('on')"></button>
         </div>
@@ -1033,13 +1033,13 @@ const SettingsPanel = {
   },
 
   async _confirmDeleteMcp(id, name) {
-    if (!confirm(`"${name}" MCP 서버를 삭제하시겠습니까?`)) return;
+    if (!confirm(window.t('mcp.deleteConfirm', { name }))) return;
     try {
       await this.deleteMcpServer(id);
-      if (typeof showToast !== 'undefined') showToast(`${name} 삭제됨`, 'success');
+      if (typeof showToast !== 'undefined') showToast(window.t('mcp.deleted', { name }), 'success');
       await this.loadMcpServers();
     } catch (e) {
-      if (typeof showToast !== 'undefined') showToast('삭제 실패: ' + e.message, 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('mcp.deleteFailed', { msg: e.message }), 'error');
     }
   },
 
@@ -1057,7 +1057,7 @@ const SettingsPanel = {
     const prefixes = prefixesInput?.value?.trim() || '';
 
     if (!name || !url) {
-      if (typeof showToast !== 'undefined') showToast('이름과 URL을 입력하세요', 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('jira.nameUrlRequired'), 'error');
       return;
     }
 
@@ -1069,9 +1069,9 @@ const SettingsPanel = {
       // 등록 후 연결 테스트
       const result = await this.testJiraServer(srv.id);
       if (result.status === 'ok') {
-        if (typeof showToast !== 'undefined') showToast(`${name} 연결 성공 (${result.user || 'OK'})`, 'success');
+        if (typeof showToast !== 'undefined') showToast(window.t('jira.connSuccess', { name, user: result.user || 'OK' }), 'success');
       } else {
-        if (typeof showToast !== 'undefined') showToast(`등록됨 — 연결 확인 필요: ${result.error}`, 'warning');
+        if (typeof showToast !== 'undefined') showToast(window.t('jira.connWarning', { error: result.error }), 'warning');
       }
       if (nameInput) nameInput.value = '';
       if (urlInput) urlInput.value = '';
@@ -1082,7 +1082,7 @@ const SettingsPanel = {
       if (form) form.classList.remove('open');
       await this.loadJiraServers();
     } catch (e) {
-      if (typeof showToast !== 'undefined') showToast('Jira 서버 등록 실패: ' + e.message, 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('jira.registerFailed', { msg: e.message }), 'error');
     } finally {
       if (registerBtn) registerBtn.disabled = false;
     }
@@ -1109,8 +1109,8 @@ const SettingsPanel = {
           <div class="s-dot ${isOn ? 's-dot-on' : 's-dot-off'}"></div>
           <span class="s-mcp-name">${this._esc(srv.name)}</span>
           <div class="s-mcp-acts">
-            <button class="s-btn-sm" onclick="SettingsPanel.testJiraServer('${srv.id}').then(r => alert(r.status === 'ok' ? '연결 성공: ' + (r.user || 'OK') : '연결 실패: ' + r.error))">테스트</button>
-            <button class="s-btn-sm s-danger" onclick="SettingsPanel._confirmDeleteJira('${srv.id}','${this._esc(srv.name)}')">삭제</button>
+            <button class="s-btn-sm" onclick="SettingsPanel.testJiraServer('${srv.id}').then(r => alert(r.status === 'ok' ? window.t('jira.connSuccessAlert', { user: r.user || 'OK' }) : window.t('jira.connFailedAlert', { error: r.error })))">${window.t('jira.test')}</button>
+            <button class="s-btn-sm s-danger" onclick="SettingsPanel._confirmDeleteJira('${srv.id}','${this._esc(srv.name)}')">${window.t('jira.delete')}</button>
           </div>
         </div>
         <div class="s-mcp-url">${this._esc(srv.url)}</div>
@@ -1125,13 +1125,13 @@ const SettingsPanel = {
   },
 
   async _confirmDeleteJira(id, name) {
-    if (!confirm(`"${name}" Jira 서버를 삭제하시겠습니까?`)) return;
+    if (!confirm(window.t('jira.deleteConfirm', { name }))) return;
     try {
       await this.deleteJiraServer(id);
-      if (typeof showToast !== 'undefined') showToast(`${name} 삭제됨`, 'success');
+      if (typeof showToast !== 'undefined') showToast(window.t('jira.deleted', { name }), 'success');
       await this.loadJiraServers();
     } catch (e) {
-      if (typeof showToast !== 'undefined') showToast('삭제 실패: ' + e.message, 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('jira.deleteFailed', { msg: e.message }), 'error');
     }
   },
 
@@ -1192,7 +1192,7 @@ const SettingsPanel = {
     const auth_type = authTypeSelect?.value || 'basic';
 
     if (!name || !url) {
-      if (typeof showToast !== 'undefined') showToast('이름과 URL을 입력하세요', 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('gerrit.nameUrlRequired'), 'error');
       return;
     }
 
@@ -1201,13 +1201,13 @@ const SettingsPanel = {
 
     try {
       await this.addGerritServer(name, url, username, token, auth_type);
-      if (typeof showToast !== 'undefined') showToast(`${name} Gerrit 서버가 등록되었습니다`, 'success');
+      if (typeof showToast !== 'undefined') showToast(window.t('gerrit.registeredSuccess', { name }), 'success');
       [nameInput, urlInput, usernameInput, tokenInput].forEach(el => { if (el) el.value = ''; });
       const form = document.getElementById('s-add-gerrit');
       if (form) form.classList.remove('open');
       await this.loadGerritServers();
     } catch (e) {
-      if (typeof showToast !== 'undefined') showToast('Gerrit 서버 등록 실패: ' + e.message, 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('gerrit.registerFailed', { msg: e.message }), 'error');
     } finally {
       if (registerBtn) registerBtn.disabled = false;
     }
@@ -1233,8 +1233,8 @@ const SettingsPanel = {
           <div class="s-dot ${isOn ? 's-dot-on' : 's-dot-off'}"></div>
           <span class="s-mcp-name">${this._esc(srv.name)}</span>
           <div class="s-mcp-acts">
-            <button class="s-btn-sm" onclick="SettingsPanel.testGerritServer('${srv.id}').then(r => alert(r.status === 'ok' ? '연결 성공: ' + (r.user || 'OK') : '연결 실패: ' + r.error))">테스트</button>
-            <button class="s-btn-sm s-danger" onclick="SettingsPanel._confirmDeleteGerrit('${srv.id}','${this._esc(srv.name)}')">삭제</button>
+            <button class="s-btn-sm" onclick="SettingsPanel.testGerritServer('${srv.id}').then(r => alert(r.status === 'ok' ? window.t('gerrit.connSuccessAlert', { user: r.user || 'OK' }) : window.t('gerrit.connFailedAlert', { error: r.error })))">${window.t('gerrit.test')}</button>
+            <button class="s-btn-sm s-danger" onclick="SettingsPanel._confirmDeleteGerrit('${srv.id}','${this._esc(srv.name)}')">${window.t('gerrit.delete')}</button>
           </div>
         </div>
         <div class="s-mcp-url">${this._esc(srv.url)}</div>
@@ -1248,13 +1248,13 @@ const SettingsPanel = {
   },
 
   async _confirmDeleteGerrit(id, name) {
-    if (!confirm(`"${name}" Gerrit 서버를 삭제하시겠습니까?`)) return;
+    if (!confirm(window.t('gerrit.deleteConfirm', { name }))) return;
     try {
       await this.deleteGerritServer(id);
-      if (typeof showToast !== 'undefined') showToast(`${name} 삭제됨`, 'success');
+      if (typeof showToast !== 'undefined') showToast(window.t('gerrit.deleted', { name }), 'success');
       await this.loadGerritServers();
     } catch (e) {
-      if (typeof showToast !== 'undefined') showToast('삭제 실패: ' + e.message, 'error');
+      if (typeof showToast !== 'undefined') showToast(window.t('gerrit.deleteFailed', { msg: e.message }), 'error');
     }
   },
 
@@ -1263,7 +1263,7 @@ const SettingsPanel = {
     const el = document.getElementById('conn-result');
     if (el) {
       el.style.color = 'var(--orange)';
-      el.textContent = '연결 중...';
+      el.textContent = window.t('conn.testing');
     }
 
     try {
@@ -1272,7 +1272,7 @@ const SettingsPanel = {
       if (res.ok) {
         if (el) {
           el.style.color = 'var(--green)';
-          el.textContent = '✓ 연결 성공';
+          el.textContent = window.t('conn.success');
         }
       } else {
         throw new Error('HTTP ' + res.status);
@@ -1280,7 +1280,7 @@ const SettingsPanel = {
     } catch (e) {
       if (el) {
         el.style.color = 'var(--red)';
-        el.textContent = '✗ 연결 실패 — ' + e.message;
+        el.textContent = window.t('conn.failed') + ' — ' + e.message;
       }
     }
   },
@@ -1384,8 +1384,8 @@ const SettingsPanel = {
       });
 
       document.getElementById('mem-clear-btn')?.addEventListener('click', () => {
-        const label = this._memType ? `"${this._memType}" 유형의 ` : '모든 ';
-        if (!confirm(`${label}장기기억을 삭제하시겠습니까?`)) return;
+        const label = this._memType ? `"${this._memType}" 유형의 ` : '';
+        if (!confirm(window.t('memory.clearConfirm', { type: label }))) return;
         this._clearMemories(this._memType || undefined);
       });
 
@@ -1474,7 +1474,7 @@ const SettingsPanel = {
   },
 
   async _deleteMemory(id) {
-    if (!confirm('이 기억을 삭제하시겠습니까?')) return;
+    if (!confirm(window.t('memory.deleteMemConfirm'))) return;
     const API_URL = (typeof window.API_URL !== 'undefined') ? window.API_URL : '';
     try {
       const res = await fetch(`${API_URL}/api/memories/${id}`, {
@@ -1485,7 +1485,7 @@ const SettingsPanel = {
       this.loadMemories();
       this._loadMemoryStats();
     } catch (e) {
-      alert('삭제 실패: ' + e.message);
+      alert(window.t('memory.deleteFailed', { msg: e.message }));
     }
   },
 
@@ -1509,7 +1509,7 @@ const SettingsPanel = {
       if (!patchRes.ok) throw new Error(patchRes.status);
       this.loadMemories();
     } catch (e) {
-      alert('수정 실패: ' + e.message);
+      alert(window.t('memory.updateFailed', { msg: e.message }));
     }
   },
 
@@ -1523,7 +1523,7 @@ const SettingsPanel = {
       this.loadMemories();
       this._loadMemoryStats();
     } catch (e) {
-      alert('삭제 실패: ' + e.message);
+      alert(window.t('memory.deleteFailed', { msg: e.message }));
     }
   },
 
@@ -1534,7 +1534,7 @@ const SettingsPanel = {
     const topicKey = document.getElementById('mem-add-topic')?.value?.trim() || null;
     const importance = parseInt(document.getElementById('mem-add-importance')?.value) || 3;
 
-    if (!content) { alert('내용을 입력하세요.'); return; }
+    if (!content) { alert(window.t('memory.contentRequired')); return; }
 
     try {
       const res = await fetch(`${API_URL}/api/memories`, {
@@ -1552,7 +1552,7 @@ const SettingsPanel = {
       this.loadMemories();
       this._loadMemoryStats();
     } catch (e) {
-      alert('추가 실패: ' + e.message);
+      alert(window.t('memory.addFailed', { msg: e.message }));
     }
   },
 

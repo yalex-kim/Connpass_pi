@@ -61,7 +61,7 @@ const ChatRenderer = {
     block.dataset.blockId = blockId;
     block.dataset.type = 'user';
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = now.toLocaleTimeString(window.t ? window.t('time.locale') : 'ko-KR', { hour: '2-digit', minute: '2-digit' });
     const lead = this._makeAvatarLead('YL', 'avatar-user');
     const body = document.createElement('div');
     body.className = 'block-body';
@@ -88,7 +88,7 @@ const ChatRenderer = {
     body.innerHTML =
       '<div class="thinking-accordion-head" aria-expanded="false" role="button">' +
         '<span style="font-size:12px">&#x1F4AD;</span>' +
-        '<span class="thinking-label">생각 중...</span>' +
+        '<span class="thinking-label">' + (window.t ? window.t('thinking.label') : '생각 중...') + '</span>' +
         '<span class="tool-chevron">&#9658;</span>' +
         '<span class="thinking-duration"></span>' +
       '</div>' +
@@ -125,7 +125,7 @@ const ChatRenderer = {
       ? ((Date.now() - this._thinkingStart[blockId]) / 1000).toFixed(1)
       : '';
     const label = block.querySelector('.thinking-label');
-    if (label) label.textContent = '생각함';
+    if (label) label.textContent = window.t ? window.t('thinking.done') : '생각함';
     const dur = block.querySelector('.thinking-duration');
     if (dur && elapsed) dur.textContent = elapsed + 's';
     delete this._rawBuffers[blockId];
@@ -146,7 +146,7 @@ const ChatRenderer = {
     body.className = 'block-body';
     if (firstInTurn) {
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = now.toLocaleTimeString(window.t ? window.t('time.locale') : 'ko-KR', { hour: '2-digit', minute: '2-digit' });
       const meta = document.createElement('div');
       meta.className = 'block-meta';
       meta.textContent = 'Connpass \xB7 ' + timeStr;
@@ -283,7 +283,7 @@ const ChatRenderer = {
     block.className = 'block--compaction';
     block.innerHTML =
       '<div class="compaction-divider"></div>' +
-      '<span>&#x26A1; ' + this._escapeHtml(message || '대화가 길어져 이전 내용을 요약했습니다') + '</span>' +
+      '<span>&#x26A1; ' + this._escapeHtml(message || (window.t ? window.t('compaction.msg') : '대화가 길어져 이전 내용을 요약했습니다')) + '</span>' +
       '<div class="compaction-divider"></div>';
     this.container.appendChild(block);
     this.scrollToBottom();
@@ -295,7 +295,7 @@ const ChatRenderer = {
     block.className = 'block block--error';
     block.innerHTML =
       '<span class="error-icon">&#x2715;</span>' +
-      '<span>' + this._escapeHtml(message || '오류가 발생했습니다') +
+      '<span>' + this._escapeHtml(message || (window.t ? window.t('error.default') : '오류가 발생했습니다')) +
         (code ? ' <span style="opacity:0.6">(' + this._escapeHtml(code) + ')</span>' : '') +
       '</span>';
     this.container.appendChild(block);
@@ -309,7 +309,7 @@ const ChatRenderer = {
     row.className = 'msg-row';
     row.dataset.id = messageId;
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = now.toLocaleTimeString(window.t ? window.t('time.locale') : 'ko-KR', { hour: '2-digit', minute: '2-digit' });
     const src = sourceLang || 'AUTO';
     const tgt = targetLang || 'KO';
     row.innerHTML =

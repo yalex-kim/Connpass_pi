@@ -97,7 +97,7 @@ function connectWS() {
         state.currentTurnId = null;
         state.lastEventWasToolCall = false;
         setGenerating(false);
-        showToast('연결이 끊어졌습니다. 재연결 중...', 'error');
+        showToast(window.t('ws.disconnected'), 'error');
       }
 
       // 3초 후 재연결
@@ -177,7 +177,7 @@ function handleWsMessage(data) {
       break;
 
     case 'compaction':
-      ChatRenderer.addCompactionBlock(data.message || '대화가 길어져 이전 내용을 요약했습니다');
+      ChatRenderer.addCompactionBlock(data.message || window.t('compaction.msg'));
       break;
 
     case 'error':
@@ -191,7 +191,7 @@ function handleWsMessage(data) {
       }
       state.currentTurnId = null;
       state.lastEventWasToolCall = false;
-      ChatRenderer.addErrorBlock(data.message || '오류가 발생했습니다', data.code);
+      ChatRenderer.addErrorBlock(data.message || window.t('error.default'), data.code);
       setGenerating(false);
       break;
 
@@ -241,7 +241,7 @@ function applyModelHealth(health) {
     // 현재 선택 모델이 offline이면 toast 경고
     const currentOpt = modelSelect.options[modelSelect.selectedIndex];
     if (currentOpt && health[currentOpt.value] === false) {
-      showToast(`${currentOpt.value} 모델이 현재 오프라인입니다. 다른 모델을 선택해주세요.`, 'error');
+      showToast(window.t('model.offline', { model: currentOpt.value }), 'error');
     }
   }
 
@@ -263,7 +263,7 @@ async function sendMessage(text) {
 
   // WS 연결 확인
   if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
-    showToast('서버에 연결 중입니다. 잠시 후 다시 시도해주세요.', 'error');
+    showToast(window.t('ws.connecting'), 'error');
     connectWS();
     return;
   }
@@ -481,15 +481,15 @@ function renderSessionList(sessions) {
     const diffMs = now - d;
     const diffDays = Math.floor(diffMs / 86400000);
     let group;
-    if (diffDays === 0) group = '오늘';
-    else if (diffDays === 1) group = '어제';
-    else if (diffDays <= 7) group = '이번 주';
-    else group = '이전';
+    if (diffDays === 0) group = window.t('time.today');
+    else if (diffDays === 1) group = window.t('time.yesterday');
+    else if (diffDays <= 7) group = window.t('time.thisWeek');
+    else group = window.t('time.older');
     if (!groups[group]) groups[group] = [];
     groups[group].push(s);
   });
 
-  const groupOrder = ['오늘', '어제', '이번 주', '이전'];
+  const groupOrder = [window.t('time.today'), window.t('time.yesterday'), window.t('time.thisWeek'), window.t('time.older')];
   groupOrder.forEach(groupName => {
     if (!groups[groupName]) return;
 
@@ -506,20 +506,20 @@ function renderSessionList(sessions) {
       const persona = session.persona || 'BT';
       const badgeClass = persona === 'WiFi' ? 'badge-wifi' : 'badge-bt';
       const timeAgo = _timeAgo(session.updatedAt || session.createdAt);
-      const title = session.title || session.firstMessage || '새 채팅';
+      const title = session.title || session.firstMessage || window.t('session.newTitle');
 
       item.innerHTML = `
         <div class="session-title">${_escHtml(title)}</div>
         <div class="session-meta">
           <span class="session-badge ${badgeClass}">${_escHtml(persona)}</span>
           <span>${timeAgo}</span>
-          <button class="session-delete-btn" style="margin-left:auto;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:12px;padding:0 4px;opacity:0;transition:opacity 0.1s" title="삭제">✕</button>
+          <button class="session-delete-btn" style="margin-left:auto;background:none;border:none;color:var(--text-2);cursor:pointer;font-size:12px;padding:0 4px;opacity:0;transition:opacity 0.1s" title="${window.t('session.deleteBtn')}">✕</button>
         </div>
       `;
 
       item.querySelector('.session-delete-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        if (confirm('이 대화를 삭제하시겠습니까?')) {
+        if (confirm(window.t('session.deleteConfirm'))) {
           deleteSession(session.id);
           if (session.id === state.currentSessionId) {
             startNewChat();
@@ -554,7 +554,7 @@ function toggleTranslateMode() {
   updateTranslateModeUI();
 
   if (state.isTranslateMode) {
-    showToast('번역 모드 활성화. 빠른 응답을 위해 Kimi-K2.5 사용을 권장합니다.', 'info');
+    showToast(window.t('translate.activated'), 'info');
   }
 }
 
@@ -573,14 +573,14 @@ function updateTranslateModeUI() {
     if (ragDropdownEl) ragDropdownEl.style.display = 'none';
     if (inputTools) inputTools.classList.add('translate-mode');
     if (badge) badge.classList.add('show');
-    if (textarea) textarea.placeholder = '번역할 텍스트를 입력하세요... (언어 자동 감지)';
+    if (textarea) textarea.placeholder = window.t('input.translatePlaceholder');
   } else {
     if (translateBtn) translateBtn.classList.remove('active');
     if (translateBar) translateBar.classList.remove('active');
     if (ragDropdownEl) ragDropdownEl.style.display = '';
     if (inputTools) inputTools.classList.remove('translate-mode');
     if (badge) badge.classList.remove('show');
-    if (textarea) textarea.placeholder = '질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)';
+    if (textarea) textarea.placeholder = window.t('input.placeholder');
   }
 }
 
@@ -623,7 +623,7 @@ const RagDropdown = {
         <input type="checkbox" id="rag-all-chk" ${allEnabled ? 'checked' : this.indexes.length === 0 ? 'checked' : ''}>
         <div class="rag-index-item-info">
           <div class="rag-index-item-name">ALL</div>
-          <div class="rag-index-item-desc">모든 인덱스 검색</div>
+          <div class="rag-index-item-desc">${window.t('rag.allIndexes')}</div>
         </div>
       </div>
       ${this.indexes.map(idx => `
@@ -732,66 +732,19 @@ function sendQuick(el) {
 }
 
 // ─── 언어 전환 (UI 다국어) ───────────────────────────────────────────────────
-const LANG = {
-  ko: {
-    'new_chat': '＋ 새 채팅',
-    'today': '오늘', 'yesterday': '어제', 'this_week': '이번 주',
-    'input.placeholder': '질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)',
-    'qp1.label': 'RAG 검색', 'qp1.text': 'BT 연결 끊김 관련 유사 Jira 이슈 찾아줘',
-    'qp2.label': '스펙 분석', 'qp2.text': 'Bluetooth 5.3 vs 5.4 주요 변경사항 비교해줘',
-    'qp3.label': 'Jira 분석', 'qp3.text': '이번 주 BT 프로젝트 미해결 이슈 요약해줘',
-    'qp4.label': '로그 분석', 'qp4.text': 'HCI_ERR_CONNECTION_TIMEOUT 에러 원인 알려줘',
-    'empty.subtitle': 'BT/WiFi 엔지니어링 AI 어시스턴트<br>문서 검색, Jira 분석, Gerrit 리뷰를 자연어로',
-  },
-  en: {
-    'new_chat': '＋ New Chat',
-    'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
-    'input.placeholder': 'Ask a question or command... (e.g. Analyze BT-4821)',
-    'qp1.label': 'RAG Search', 'qp1.text': 'Find similar Jira issues related to BT disconnection',
-    'qp2.label': 'Spec Analysis', 'qp2.text': 'Compare key changes between Bluetooth 5.3 and 5.4',
-    'qp3.label': 'Jira Analysis', 'qp3.text': 'Summarize unresolved BT project issues this week',
-    'qp4.label': 'Log Analysis', 'qp4.text': 'Explain the cause of HCI_ERR_CONNECTION_TIMEOUT error',
-    'empty.subtitle': 'BT/WiFi Engineering AI Assistant<br>Doc search, Jira analysis, Gerrit review in natural language',
-  },
-};
-
-let currentLang = localStorage.getItem('lang') || 'ko';
-
-function t(key) {
-  return LANG[currentLang]?.[key] ?? LANG['ko'][key] ?? key;
-}
-
-function setLang(lang, btn) {
-  currentLang = lang;
-  localStorage.setItem('lang', lang);
-  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  applyLang();
-}
+// t(), setLang(), applyI18n() 은 i18n.js에서 window에 전역 등록됨
 
 function applyLang() {
-  const newChatBtn = document.querySelector('.new-chat-btn');
-  if (newChatBtn) newChatBtn.innerHTML = `<span>＋</span> ${currentLang === 'ko' ? '새 채팅' : 'New Chat'}`;
+  // data-i18n 속성 기반 DOM 갱신 (i18n.js)
+  if (typeof window.applyI18n === 'function') window.applyI18n();
 
+  // input placeholder (번역 모드 여부에 따라 분기)
   const textarea = document.getElementById('main-input');
-  if (textarea && !state.isTranslateMode) textarea.placeholder = t('input.placeholder');
-
-  // 빠른 프롬프트
-  const qps = document.querySelectorAll('.quick-prompt');
-  [1, 2, 3, 4].forEach((n, i) => {
-    if (qps[i]) {
-      const label = qps[i].querySelector('.qp-label');
-      const text = qps[i].querySelector('.qp-text');
-      if (label) label.textContent = t(`qp${n}.label`);
-      if (text) text.textContent = t(`qp${n}.text`);
-    }
-  });
-
-  // empty subtitle
-  const sub = document.querySelector('.empty-subtitle');
-  if (sub) sub.innerHTML = t('empty.subtitle');
-
-  document.documentElement.lang = currentLang;
+  if (textarea) {
+    textarea.placeholder = state.isTranslateMode
+      ? window.t('input.translatePlaceholder')
+      : window.t('input.placeholder');
+  }
 }
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -808,11 +761,11 @@ function setGenerating(val) {
     if (val) {
       sendBtn.textContent = '■';
       sendBtn.classList.add('stop');
-      sendBtn.title = '생성 중지';
+      sendBtn.title = window.t('send.stop');
     } else {
       sendBtn.textContent = '▶';
       sendBtn.classList.remove('stop');
-      sendBtn.title = '전송';
+      sendBtn.title = window.t('send.send');
     }
   }
 
@@ -884,14 +837,14 @@ function _timeAgo(dateStr) {
   const d = new Date(dateStr);
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '방금 전';
-  if (mins < 60) return `${mins}분 전`;
+  if (mins < 1) return window.t('time.justNow');
+  if (mins < 60) return window.t('time.minutesAgo', { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}시간 전`;
+  if (hours < 24) return window.t('time.hoursAgo', { n: hours });
   const days = Math.floor(hours / 24);
-  if (days === 1) return '어제';
-  if (days < 7) return `${days}일 전`;
-  return d.toLocaleDateString('ko-KR');
+  if (days === 1) return window.t('time.yesterday');
+  if (days < 7) return window.t('time.daysAgo', { n: days });
+  return d.toLocaleDateString(window.t('time.locale'));
 }
 
 function _escHtml(str) {
@@ -952,11 +905,11 @@ function setupEventListeners() {
 
   // 설정 토글 버튼 — SettingsPanel.init()에서 이미 등록됨, 중복 등록 금지
 
-  // 언어 토글
+  // 언어 토글 — i18n.js의 setLang() 사용 (data-lang 속성 기준)
   document.querySelectorAll('.lang-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const lang = btn.textContent.trim().toLowerCase();
-      setLang(lang, btn);
+      const lang = btn.dataset.lang || btn.textContent.trim().toLowerCase();
+      if (typeof window.setLang === 'function') window.setLang(lang);
     });
   });
 
@@ -1252,12 +1205,12 @@ async function init() {
   // 5. 이벤트 리스너 설정
   setupEventListeners();
 
-  // 6. 언어 초기화
-  const savedLang = localStorage.getItem('lang') || 'ko';
+  // 6. 언어 초기화 — i18n.js 로드 완료 후 DOM 갱신
+  await window.i18nReady;
+  const savedLang = window.getCurrentLang ? window.getCurrentLang() : (localStorage.getItem('ui-lang') || 'ko');
   document.querySelectorAll('.lang-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === savedLang);
+    btn.classList.toggle('active', (btn.dataset.lang || btn.textContent.trim().toLowerCase()) === savedLang);
   });
-  currentLang = savedLang;
   applyLang();
 
   // 7. 저장된 모델 복원

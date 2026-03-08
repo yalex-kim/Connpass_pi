@@ -46,15 +46,16 @@
   <div class="topbar-right">
     <span id="ws-status-dot" class="ws-status" title="WebSocket 연결 상태"></span>
     <div class="topbar-sep"></div>
-    <!-- 언어 토글 -->
+    <!-- 언어 토글 (UI 표시 언어) -->
     <div class="lang-toggle">
-      <button class="lang-btn active">KO</button>
-      <button class="lang-btn">EN</button>
+      <button class="lang-btn active" data-lang="ko">KO</button>
+      <button class="lang-btn" data-lang="en">EN</button>
+      <button class="lang-btn" data-lang="zh">ZH</button>
     </div>
     <div class="topbar-sep"></div>
-    <button class="topbar-text-btn" title="사용 가이드">📖 가이드</button>
-    <button class="topbar-text-btn" title="릴리즈 노트">🗒 릴리즈 노트</button>
-    <button class="topbar-text-btn" title="버그 리포트">🐛 Support</button>
+    <button class="topbar-text-btn" data-i18n="nav.guide" title="사용 가이드">📖 가이드</button>
+    <button class="topbar-text-btn" data-i18n="nav.release" title="릴리즈 노트">🗒 릴리즈 노트</button>
+    <button class="topbar-text-btn" data-i18n="nav.support" title="버그 리포트">🐛 Support</button>
     <div class="topbar-sep"></div>
     <!-- 설정 버튼은 sidebar footer 에서 처리 -->
   </div>
@@ -66,7 +67,7 @@
   <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sidebar-head">
-      <button class="new-chat-btn">
+      <button class="new-chat-btn" data-i18n="nav.newChat">
         <span>＋</span> 새 채팅
       </button>
     </div>
@@ -74,13 +75,13 @@
     <!-- 세션 목록 (JS로 동적 렌더링) -->
     <div class="sidebar-list" id="session-list">
       <!-- 초기 placeholder — JS가 채움 -->
-      <div style="padding:12px 10px;font-size:11px;color:var(--text-2);text-align:center">서버에 연결 중...</div>
+      <div style="padding:12px 10px;font-size:11px;color:var(--text-2);text-align:center" data-i18n="sidebar.connecting">서버에 연결 중...</div>
     </div>
 
     <div class="sidebar-footer">
       <button class="sidebar-nav-btn" id="settings-toggle-btn">
         <span class="nav-icon">⚙</span>
-        <span>설정</span>
+        <span data-i18n="nav.settings">설정</span>
       </button>
     </div>
   </div>
@@ -90,9 +91,9 @@
 
     <!-- 번역 모드 바 -->
     <div class="translate-bar" id="translate-bar">
-      <div class="translate-bar-label">번역 모드 — tool_choice: none</div>
+      <div class="translate-bar-label" data-i18n="translate.modeLabel">번역 모드 — tool_choice: none</div>
       <div class="translate-bar-sep"></div>
-      <span style="font-family:var(--font-mono);font-size:10px;color:rgba(176,108,249,0.6)">번역 대상:</span>
+      <span style="font-family:var(--font-mono);font-size:10px;color:rgba(176,108,249,0.6)" data-i18n="translate.targetLabel">번역 대상:</span>
       <div class="target-lang-group" id="target-lang-group">
         <button class="target-lang-btn">EN</button>
         <button class="target-lang-btn active">KO</button>
@@ -109,23 +110,23 @@
         <div>
           <div class="empty-logo">CONN<span>PASS</span></div>
         </div>
-        <div class="empty-subtitle">BT/WiFi 엔지니어링 AI 어시스턴트<br>문서 검색, Jira 분석, Gerrit 리뷰를 자연어로</div>
+        <div class="empty-subtitle" data-i18n="empty.subtitle">BT/WiFi 엔지니어링 AI 어시스턴트<br>문서 검색, Jira 분석, Gerrit 리뷰를 자연어로</div>
         <div class="quick-prompts">
           <div class="quick-prompt">
-            <div class="qp-label">RAG 검색</div>
-            <div class="qp-text">BT 연결 끊김 관련 유사 Jira 이슈 찾아줘</div>
+            <div class="qp-label" data-i18n="qp1.label">RAG 검색</div>
+            <div class="qp-text" data-i18n="qp1.text">BT 연결 끊김 관련 유사 Jira 이슈 찾아줘</div>
           </div>
           <div class="quick-prompt">
-            <div class="qp-label">스펙 분석</div>
-            <div class="qp-text">Bluetooth 5.3 vs 5.4 주요 변경사항 비교해줘</div>
+            <div class="qp-label" data-i18n="qp2.label">스펙 분석</div>
+            <div class="qp-text" data-i18n="qp2.text">Bluetooth 5.3 vs 5.4 주요 변경사항 비교해줘</div>
           </div>
           <div class="quick-prompt">
-            <div class="qp-label">Jira 분석</div>
-            <div class="qp-text">이번 주 BT 프로젝트 미해결 이슈 요약해줘</div>
+            <div class="qp-label" data-i18n="qp3.label">Jira 분석</div>
+            <div class="qp-text" data-i18n="qp3.text">이번 주 BT 프로젝트 미해결 이슈 요약해줘</div>
           </div>
           <div class="quick-prompt">
-            <div class="qp-label">로그 분석</div>
-            <div class="qp-text">HCI_ERR_CONNECTION_TIMEOUT 에러 원인 알려줘</div>
+            <div class="qp-label" data-i18n="qp4.label">로그 분석</div>
+            <div class="qp-text" data-i18n="qp4.text">HCI_ERR_CONNECTION_TIMEOUT 에러 원인 알려줘</div>
           </div>
         </div>
       </div>
@@ -139,7 +140,7 @@
         <div class="rag-index-dropdown" id="rag-index-dropdown">
           <button class="rag-index-trigger" id="rag-index-trigger">
             <span>◈</span>
-            <span id="rag-index-label">RAG: 로딩 중...</span>
+            <span id="rag-index-label" data-i18n="rag.loading">RAG: 로딩 중...</span>
             <span class="rag-index-chevron">▾</span>
           </button>
           <div class="rag-index-panel" id="rag-index-panel"></div>
@@ -153,24 +154,25 @@
         <div class="input-tool-chip">
           <div class="chip-dot"></div> MCP
         </div>
-        <div class="input-tool-chip" style="border-style:dashed">
+        <div class="input-tool-chip" style="border-style:dashed" data-i18n="chip.skillAdd">
           + Skill 추가
         </div>
         <button class="translate-toggle-btn" id="translate-btn">
-          <span class="t-icon">⟵⟶</span> 번역
+          <span class="t-icon">⟵⟶</span> <span data-i18n="translate.btn">번역</span>
         </button>
       </div>
       <div class="input-box">
-        <button class="input-file-btn" title="파일 업로드 (멀티모달 준비 중)" disabled>📎</button>
+        <button class="input-file-btn" data-i18n-title="input.fileTitle" title="파일 업로드 (멀티모달 준비 중)" disabled>📎</button>
         <textarea
           id="main-input"
+          data-i18n-placeholder="input.placeholder"
           placeholder="질문하거나 명령을 입력하세요... (예: BT-4821 분석해줘)"
           rows="1"
         ></textarea>
-        <button class="send-btn" id="send-btn" title="전송">▶</button>
+        <button class="send-btn" id="send-btn" data-i18n-title="input.sendTitle" title="전송">▶</button>
       </div>
       <div class="input-footer">
-        <span class="input-hint"><kbd>Enter</kbd> 전송 &nbsp; <kbd>Shift+Enter</kbd> 줄바꿈</span>
+        <span class="input-hint" data-i18n="input.hint"><kbd>Enter</kbd> 전송 &nbsp; <kbd>Shift+Enter</kbd> 줄바꿈</span>
         <div class="token-counter">
           <div class="token-bar"><div class="token-fill" id="token-fill"></div></div>
           <span id="token-text">0K / 128K</span>
@@ -184,28 +186,28 @@
   <div class="settings-view" id="settings-view">
 
     <div class="settings-topbar">
-      <div class="settings-title">CONN<span>PASS</span> &nbsp;/&nbsp; 설정</div>
-      <span class="save-badge" id="save-badge">저장됨</span>
-      <button class="btn-save" id="settings-save-btn">저장</button>
+      <div class="settings-title" data-i18n="settings.title">CONN<span>PASS</span> &nbsp;/&nbsp; 설정</div>
+      <span class="save-badge" id="save-badge" data-i18n="settings.saved">저장됨</span>
+      <button class="btn-save" id="settings-save-btn" data-i18n="settings.save">저장</button>
     </div>
 
     <div class="settings-layout">
 
       <!-- 설정 좌측 nav -->
       <nav class="settings-nav">
-        <div class="nav-group-label">모델 &amp; 연동</div>
-        <div class="nav-item active" data-section="llm"><span class="nav-icon">⚡</span><span class="nav-label">LLM 모델</span></div>
-        <div class="nav-item" data-section="mcp"><span class="nav-icon">🔌</span><span class="nav-label">MCP 서버</span><span class="nav-badge">3</span></div>
-        <div class="nav-item" data-section="jira"><span class="nav-icon">🎫</span><span class="nav-label">JIRA 서버</span></div>
-        <div class="nav-item" data-section="gerrit"><span class="nav-icon">🔍</span><span class="nav-label">Gerrit 서버</span></div>
-        <div class="nav-item" data-section="skill"><span class="nav-icon">⚙️</span><span class="nav-label">Skill</span><span class="nav-badge">4</span></div>
-        <div class="nav-group-label">개인화</div>
-        <div class="nav-item" data-section="agentmd"><span class="nav-icon">📝</span><span class="nav-label">Agent.md</span></div>
-        <div class="nav-item" data-section="memories"><span class="nav-icon">🧠</span><span class="nav-label">장기기억</span></div>
-        <div class="nav-group-label">번역</div>
-        <div class="nav-item" data-section="translate"><span class="nav-icon">⟵⟶</span><span class="nav-label">번역 설정</span></div>
-        <div class="nav-group-label">화면</div>
-        <div class="nav-item" data-section="ui"><span class="nav-icon">🎨</span><span class="nav-label">UI 설정</span></div>
+        <div class="nav-group-label" data-i18n="nav.section.modelIntegration">모델 &amp; 연동</div>
+        <div class="nav-item active" data-section="llm"><span class="nav-icon">⚡</span><span class="nav-label" data-i18n="nav.section.llm">LLM 모델</span></div>
+        <div class="nav-item" data-section="mcp"><span class="nav-icon">🔌</span><span class="nav-label" data-i18n="nav.section.mcp">MCP 서버</span><span class="nav-badge">3</span></div>
+        <div class="nav-item" data-section="jira"><span class="nav-icon">🎫</span><span class="nav-label" data-i18n="nav.section.jira">JIRA 서버</span></div>
+        <div class="nav-item" data-section="gerrit"><span class="nav-icon">🔍</span><span class="nav-label" data-i18n="nav.section.gerrit">Gerrit 서버</span></div>
+        <div class="nav-item" data-section="skill"><span class="nav-icon">⚙️</span><span class="nav-label" data-i18n="nav.section.skill">Skill</span><span class="nav-badge">4</span></div>
+        <div class="nav-group-label" data-i18n="nav.section.personalization">개인화</div>
+        <div class="nav-item" data-section="agentmd"><span class="nav-icon">📝</span><span class="nav-label" data-i18n="nav.section.agentmd">Agent.md</span></div>
+        <div class="nav-item" data-section="memories"><span class="nav-icon">🧠</span><span class="nav-label" data-i18n="nav.section.memories">장기기억</span></div>
+        <div class="nav-group-label" data-i18n="nav.section.translate">번역</div>
+        <div class="nav-item" data-section="translate"><span class="nav-icon">⟵⟶</span><span class="nav-label" data-i18n="nav.section.translateSettings">번역 설정</span></div>
+        <div class="nav-group-label" data-i18n="nav.section.ui">화면</div>
+        <div class="nav-item" data-section="ui"><span class="nav-icon">🎨</span><span class="nav-label" data-i18n="nav.section.uiSettings">UI 설정</span></div>
       </nav>
 
       <!-- 설정 콘텐츠 -->
@@ -214,8 +216,8 @@
         <!-- LLM -->
         <div class="sec active" id="sec-llm">
           <div class="sec-header">
-            <div class="sec-title">⚡ <span>LLM</span> 모델 설정</div>
-            <div class="sec-desc">모델별로 서버 URL, API Key, 파라미터를 독립적으로 설정합니다.</div>
+            <div class="sec-title" data-i18n="llm.title">⚡ <span>LLM</span> 모델 설정</div>
+            <div class="sec-desc" data-i18n="llm.desc">모델별로 서버 URL, API Key, 파라미터를 독립적으로 설정합니다.</div>
           </div>
 
           <!-- 기본 모델 선택 -->
@@ -337,8 +339,8 @@
         <!-- MCP -->
         <div class="sec" id="sec-mcp">
           <div class="sec-header">
-            <div class="sec-title">🔌 <span>MCP</span> 서버 관리</div>
-            <div class="sec-desc">SSE 기반 MCP 서버를 등록하고 활성화합니다.</div>
+            <div class="sec-title" data-i18n="mcp.title">🔌 <span>MCP</span> 서버 관리</div>
+            <div class="sec-desc" data-i18n="mcp.desc">SSE 기반 MCP 서버를 등록하고 활성화합니다.</div>
           </div>
           <div class="s-card">
             <div class="s-card-title">등록된 서버</div>
@@ -385,8 +387,8 @@
         <!-- JIRA -->
         <div class="sec" id="sec-jira">
           <div class="sec-header">
-            <div class="sec-title">🎫 <span>JIRA</span> 서버 관리</div>
-            <div class="sec-desc">여러 Jira 서버(Atlassian Cloud / 사내 Server)를 등록하고 API 호출 시 선택할 수 있습니다.</div>
+            <div class="sec-title" data-i18n="jira.title">🎫 <span>JIRA</span> 서버 관리</div>
+            <div class="sec-desc" data-i18n="jira.desc">여러 Jira 서버(Atlassian Cloud / 사내 Server)를 등록하고 API 호출 시 선택할 수 있습니다.</div>
           </div>
           <div class="s-card">
             <div class="s-card-title">등록된 서버</div>
@@ -414,8 +416,8 @@
         <!-- GERRIT -->
         <div class="sec" id="sec-gerrit">
           <div class="sec-header">
-            <div class="sec-title">🔍 <span>Gerrit</span> 서버 관리</div>
-            <div class="sec-desc">Gerrit 코드리뷰 서버를 등록합니다. Basic Auth 또는 Bearer Token을 지원합니다.</div>
+            <div class="sec-title" data-i18n="gerrit.title">🔍 <span>Gerrit</span> 서버 관리</div>
+            <div class="sec-desc" data-i18n="gerrit.desc">Gerrit 코드리뷰 서버를 등록합니다. Basic Auth 또는 Bearer Token을 지원합니다.</div>
           </div>
           <div class="s-card">
             <div class="s-card-title">등록된 서버</div>
@@ -449,8 +451,8 @@
         <!-- SKILL -->
         <div class="sec" id="sec-skill">
           <div class="sec-header">
-            <div class="sec-title">⚙️ <span>Skill</span> 관리</div>
-            <div class="sec-desc">SKILL.md 기반 워크플로우. 공유 Skill은 관리자가 파일로 관리하고, 개인 Skill은 .md 파일을 업로드해 추가합니다. 서버 재시작 없이 즉시 반영됩니다.</div>
+            <div class="sec-title" data-i18n="skill.title">⚙️ <span>Skill</span> 관리</div>
+            <div class="sec-desc" data-i18n="skill.desc">SKILL.md 기반 워크플로우. 공유 Skill은 관리자가 파일로 관리하고, 개인 Skill은 .md 파일을 업로드해 추가합니다. 서버 재시작 없이 즉시 반영됩니다.</div>
           </div>
           <div class="s-card">
             <div class="s-card-title">등록된 Skill</div>
@@ -473,8 +475,8 @@
         <!-- TRANSLATE -->
         <div class="sec" id="sec-translate">
           <div class="sec-header">
-            <div class="sec-title">⟵⟶ <span>번역</span> 설정</div>
-            <div class="sec-desc">번역 모드 동작 방식을 설정합니다. tool_choice: none으로 LLM 직통 응답하여 지연 없이 빠르게 번역합니다.</div>
+            <div class="sec-title" data-i18n="translateSettings.title">⟵⟶ <span>번역</span> 설정</div>
+            <div class="sec-desc" data-i18n="translateSettings.desc">번역 모드 동작 방식을 설정합니다. tool_choice: none으로 LLM 직통 응답하여 지연 없이 빠르게 번역합니다.</div>
           </div>
 
           <div class="s-card">
@@ -587,8 +589,8 @@
         <!-- AGENT.MD -->
         <div class="sec" id="sec-agentmd">
           <div class="sec-header">
-            <div class="sec-title">📝 <span>Agent.md</span></div>
-            <div class="sec-desc">매 세션 시작 시 system prompt에 자동으로 포함됩니다.</div>
+            <div class="sec-title" data-i18n="agentmd.title">📝 <span>Agent.md</span></div>
+            <div class="sec-desc" data-i18n="agentmd.desc">매 세션 시작 시 system prompt에 자동으로 포함됩니다.</div>
           </div>
           <div class="s-card">
             <div class="s-card-title">기본 정보</div>
@@ -638,8 +640,8 @@
         <!-- UI -->
         <div class="sec" id="sec-ui">
           <div class="sec-header">
-            <div class="sec-title">🎨 <span>UI</span> 설정</div>
-            <div class="sec-desc">화면 테마, 폰트, 밀도 등을 조정합니다.</div>
+            <div class="sec-title" data-i18n="ui.title">🎨 <span>UI</span> 설정</div>
+            <div class="sec-desc" data-i18n="ui.desc">화면 테마, 폰트, 밀도 등을 조정합니다.</div>
           </div>
           <div class="s-card">
             <div class="s-card-title">테마</div>
@@ -706,8 +708,8 @@
         <!-- 장기기억 -->
         <div class="sec" id="sec-memories">
           <div class="sec-header">
-            <div class="sec-title">🧠 <span>장기기억</span> 관리</div>
-            <div class="sec-desc">AI가 세션간에 기억하는 사용자 정보를 확인하고 관리합니다.</div>
+            <div class="sec-title" data-i18n="memory.title">🧠 <span>장기기억</span> 관리</div>
+            <div class="sec-desc" data-i18n="memory.desc">AI가 세션간에 기억하는 사용자 정보를 확인하고 관리합니다.</div>
           </div>
 
           <!-- 통계 -->
@@ -810,6 +812,8 @@
 <!-- 코드 하이라이트 -->
 <script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/highlight.min.js"></script>
 
+<!-- i18n (다국어) — 반드시 다른 모듈보다 먼저 로드 -->
+<script src="js/i18n.js"></script>
 <!-- 앱 모듈 (순서 중요: chat.js → settings.js → app.js) -->
 <script src="js/chat.js"></script>
 <script src="js/settings.js"></script>
