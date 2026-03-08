@@ -1,7 +1,7 @@
 import { Agent } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { streamSimple } from "@mariozechner/pi-ai";
 import { loadSkills, formatSkillsForPrompt } from "@mariozechner/pi-coding-agent";
-import type { WebSocket } from "ws";
 import path from "path";
 import { fileURLToPath } from "url";
 import { resolveModel, models } from "./models.js";
